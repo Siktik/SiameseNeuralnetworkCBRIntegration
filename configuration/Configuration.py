@@ -28,7 +28,7 @@ class GeneralConfiguration:
         self.models_folder = '../data/trained_models/'
 
         # Path and file name to the specific model that should be used for testing and live classification
-        self.filename_model_to_use = 'temp_snn_model_06-29_17-44-52_epoch-2256/'
+        self.filename_model_to_use = 'temp_snn_model_04-09_22-31-47_epoch-1748/'
         self.directory_model_to_use = self.models_folder + self.filename_model_to_use + '/'
 
         ##

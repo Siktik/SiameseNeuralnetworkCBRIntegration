@@ -154,21 +154,33 @@ class FullDataset(Dataset):
         self.df_label_sim_failuremode = None
         self.df_label_sim_condition = None
 
-    def load_files(self):
+    def load_files(self, features, labels, windowTimes, recordingSequence):
 
         self.x_train = np.load(self.dataset_folder + 'train_features.npy')  # data training
         self.y_train_strings = np.expand_dims(np.load(self.dataset_folder + 'train_labels.npy'), axis=-1)
         self.window_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_window_times.npy'), axis=-1)
         self.failure_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_failure_times.npy'), axis=-1)
 
+        '''
         self.x_test = np.load(self.dataset_folder + 'test_features.npy')  # data testing
         self.y_test_strings = np.expand_dims(np.load(self.dataset_folder + 'test_labels.npy'), axis=-1)
         self.window_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_window_times.npy'), axis=-1)
         self.failure_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_failure_times.npy'), axis=-1)
+        
+        '''
+        self.x_test= features
+        self.y_test_strings = labels
+        self.window_times_test = np.expand_dims(windowTimes, axis=-1)
+        self.failure_times_test = recordingSequence
+
+        print(windowTimes)
+        print(self.y_test_strings.shape)
+        print(self.window_times_test.shape)
+        print(self.failure_times_test.shape)
         self.feature_names_all = np.load(self.dataset_folder + 'feature_names.npy')  # names of the features (3. dim)
 
-    def load(self, print_info=True):
-        self.load_files()
+    def load(self, features, labels, windowTimes, recordingSequence, print_info=True):
+        self.load_files(features, labels, windowTimes, recordingSequence)
 
         # create a encoder, sparse output must be disabled to get the intended output format
         # added categories='auto' to use future behavior
@@ -283,7 +295,7 @@ class FullDataset(Dataset):
         self.df_label_sim_failuremode = pd.read_csv(self.dataset_folder + 'FailureMode_Sim_Matrix.csv', sep=';',
                                                     index_col=0)
         self.df_label_sim_failuremode.index = self.df_label_sim_failuremode.index.str.replace('\'', '')
-        self.df_label_sim_localization = pd.read_csv(self.dataset_folder + 'Lokalization_Sim_Matrix.csv', sep=';',
+        self.df_label_sim_localization = pd.read_csv(self.dataset_folder + 'Localization_Sim_Matrix.csv', sep=';',
                                                      index_col=0)
         self.df_label_sim_localization.index = self.df_label_sim_localization.index.str.replace('\'', '')
         self.df_label_sim_condition = pd.read_csv(self.dataset_folder + 'Condition_Sim_Matrix.csv', sep=';',

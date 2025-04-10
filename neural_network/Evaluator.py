@@ -236,7 +236,7 @@ class Evaluator:
         all_classes.remove('combined')
         y_true_one_hot, y_score, labels = self.get_auc_score_input(all_classes)
         auc_score = metrics.roc_auc_score(y_true=y_true_one_hot, y_score=y_score, labels=labels,
-                                          multi_class='ovr')
+                                           multi_class='ovr')
         self.results.loc['combined', 'ROC_AUC'] = auc_score
 
         # Correction of the accuracy for the "combined" row
@@ -359,4 +359,5 @@ class Evaluator:
         print('Condition quality:', "\t\t", self.quality_all_condition_quality / num_infers, "\t\t Failure only: \t",
               self.quality_fails_condition_quality / self.example_counter_fails)
         print()
+
         print('-------------------------------------------------------------')
