@@ -161,7 +161,7 @@ class FullDataset(Dataset):
         self.window_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_window_times.npy'), axis=-1)
         self.failure_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_failure_times.npy'), axis=-1)
 
-        '''
+
         self.x_test = np.load(self.dataset_folder + 'test_features.npy')  # data testing
         self.y_test_strings = np.expand_dims(np.load(self.dataset_folder + 'test_labels.npy'), axis=-1)
         self.window_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_window_times.npy'), axis=-1)
@@ -172,7 +172,7 @@ class FullDataset(Dataset):
         self.y_test_strings = labels
         self.window_times_test = np.expand_dims(windowTimes, axis=-1)
         self.failure_times_test = recordingSequence
-
+        '''
         print(windowTimes)
         print(self.y_test_strings.shape)
         print(self.window_times_test.shape)
@@ -265,29 +265,6 @@ class FullDataset(Dataset):
             # print('Classes in total: ', self.classes_total)
             print()
 
-    def load_feature_based_representation(self):
-
-        # Load TS-Fresh generated features
-        filtered_file = 'extractedFeatures_X_caseBase_filtered_4ms4sec.pkl'
-        unfiltered_file = 'extractedFeatures_X_test_unfiltered_imputed_4ms4sec.pkl'
-        filtered_cb_df = (pd.read_pickle(self.dataset_folder + filtered_file))
-        unfiltered_test_examples_df = (pd.read_pickle(self.dataset_folder + unfiltered_file))
-
-        # Attributes selected after TSFresh significance test on case base
-        self.relevant_features_by_TSFresh = filtered_cb_df.columns
-        filtered_test_examples_df = unfiltered_test_examples_df[self.relevant_features_by_TSFresh]
-
-        # print("unfiltered_test_examples_df: ", unfiltered_test_examples_df.shape)
-        # print("filtered_cb_df: ", filtered_cb_df.shape)
-        # merged_df = pd.concat([filtered_cb_df, unfiltered_test_examples_df])
-
-        # Preprocessing
-        # min_max_scaler = preprocessing.MinMaxScaler()
-        # filteredCB_np_scaled = min_max_scaler.fit_transform(filtered_cb_df)
-        # filteredTestExamples_np_scaled = min_max_scaler.transform(filtered_test_examples_df)
-
-        self.x_test_TSFresh_features = filtered_test_examples_df.values  # filteredTestExamples_np_scaled
-        self.x_train_TSFresh_features = filtered_cb_df.values  # filteredCB_np_scaled
 
     def load_sim_matrices(self):
         # load a matrix with pair-wise similarities between labels in respect
@@ -336,34 +313,8 @@ class FullDataset(Dataset):
             else:
                 return self.class_label_to_masking_vector.get(class_label)
 
-    def get_masked_example_group(self, test_example, group_id):
-
-        if group_id not in self.group_id_to_masking_vector:
-            raise ValueError('Passed group id', group_id, 'was not found in masking dictionary')
-        else:
-            mask = self.group_id_to_masking_vector.get(group_id)
-            return test_example[:, mask]
-
     def get_masking_float(self, class_label):
         return self.get_masking(class_label).astype(float)
-
-    # Will return the test example and the train example (of the passed index) reduced to the
-    # relevant attributes of the case of the train_example
-    def reduce_to_relevant(self, test_example, train_example_index):
-        class_label_train_example = self.y_train_strings[train_example_index]
-        mask = self.get_masking(class_label_train_example)
-        return test_example[:, mask], self.x_train[train_example_index][:, mask]
-
-    def get_ts_fresh_masking(self, train_example_index):
-        class_label_train_example = self.y_train_strings[train_example_index]
-        relevant_features_for_case = self.config.get_relevant_features_case(class_label_train_example)
-        masking = np.zeros(len(self.relevant_features_by_TSFresh))
-
-        idx = [i for i, x in enumerate(self.relevant_features_by_TSFresh) if
-               x.split('__')[0] in relevant_features_for_case]
-        masking[idx] = 1
-
-        return masking
 
     def get_time_window_str(self, index, dataset_type):
         if dataset_type == 'test':
@@ -382,127 +333,6 @@ class FullDataset(Dataset):
     def get_indices_failures_only_test(self):
         return np.where(self.y_test_strings != 'no_failure')[0]
 
-    def encode(self, snn, encode_test_data=False):
-
-        start_time_encoding = perf_counter()
-        print('Encoding of dataset started')
-
-        x_train_unencoded = self.x_train
-        '''
-        x_train_masking = np.zeros((self.x_train.shape[0],self.x_train.shape[2]))
-        for i,label in enumerate(self.y_train_strings):
-            #print(i,label)
-            x_train_masking[i,:] = self.get_masking(label)
-        print("x_train_masking: ", x_train_masking.shape)
-        '''
-        self.x_train = None
-        batchsize = self.config.sim_calculation_batch_size
-        '''
-        for example in range(x_train_unencoded.shape[0]//batchsize):
-            start = example * batchsize
-            end = (example +1) * batchsize
-            #print("x_train_unencoded: ", x_train_unencoded.shape)
-            print("batch: ", example, "start: ", start, "end: ", end)
-            batch = x_train_unencoded[:132,:,:]
-            batch = snn.reshape(batch)
-            x_train_unencoded = snn.reshape_and_add_aux_input(x_train_unencoded, batch_size=66)
-        '''
-
-        x_train_unencoded_reshaped = snn.reshape_and_add_aux_input(x_train_unencoded,
-                                                                   batch_size=(x_train_unencoded.shape[0] // 2))
-        encoded = snn.encode_in_batches(x_train_unencoded_reshaped)
-
-        if snn.hyper.encoder_variant == 'cnn2dwithaddinput':
-            # encoded output is a list with each entry has an encoded batchjob with the number of outputs
-            x_train_encoded_0 = encoded[0][0]
-            x_train_encoded_1 = encoded[0][1]
-            x_train_encoded_2 = encoded[0][2]
-            x_train_encoded_3 = encoded[0][3]
-            for encoded_batch in encoded:
-                x_train_encoded_0 = np.append(x_train_encoded_0, encoded_batch[0], axis=0)
-                x_train_encoded_1 = np.append(x_train_encoded_1, encoded_batch[1], axis=0)
-                x_train_encoded_2 = np.append(x_train_encoded_2, encoded_batch[2], axis=0)
-                x_train_encoded_3 = np.append(x_train_encoded_3, encoded_batch[3], axis=0)
-            '''
-            print("x_train_encoded_0: ", x_train_encoded_0.shape)
-            print("x_train_encoded_1: ", x_train_encoded_1.shape)
-            print("x_train_encoded_2: ", x_train_encoded_2.shape)
-            print("x_train_encoded_3: ", x_train_encoded_3.shape)
-            '''
-            x_train_encoded_0 = x_train_encoded_0[batchsize:, :, :]
-            x_train_encoded_1 = x_train_encoded_1[batchsize:, :]
-            x_train_encoded_2 = x_train_encoded_2[batchsize:, :, :]
-            x_train_encoded_3 = x_train_encoded_3[batchsize:, :]
-            '''
-            print("x_train_encoded_0: ", x_train_encoded_0.shape)
-            print("x_train_encoded_1: ", x_train_encoded_1.shape)
-            print("x_train_encoded_2: ", x_train_encoded_2.shape)
-            print("x_train_encoded_3: ", x_train_encoded_3.shape)
-            '''
-            '''
-            x_train_unencoded = snn.reshape(x_train_unencoded[:132,:,:])
-            print("x_train_unencoded: ", x_train_unencoded.shape)
-            x_train_unencoded = snn.reshape_and_add_aux_input(x_train_unencoded, batch_size=66)
-            print("x_train_unencoded: ", x_train_unencoded[0].shape, x_train_unencoded[1].shape)
-            x_train_encoded = snn.encoder.model(x_train_unencoded, training=False)
-            x_train_encoded = np.asarray(x_train_encoded)
-            self.x_train = x_train_encoded
-            '''
-            self.x_train = [x_train_encoded_0, x_train_encoded_1, x_train_encoded_2, x_train_encoded_3]
-        else:
-            print("shape. ", encoded[0].shape)
-            x_train_encoded_0 = encoded[0]
-            for encoded_batch in encoded:
-                x_train_encoded_0 = np.append(x_train_encoded_0, encoded_batch, axis=0)
-            x_train_encoded_0 = x_train_encoded_0[batchsize:, :, :]
-            self.x_train = x_train_encoded_0
-        # x_test will not be encoded by default because examples should simulate "new data" --> encoded at runtime
-        # but can be done for visualisation purposes
-        if encode_test_data:
-            x_test_unencoded = self.x_test
-            self.x_test = None
-            x_test_unencoded = snn.reshape(x_test_unencoded)
-            x_test_encoded = snn.encoder.model(x_test_unencoded, training=False)
-            x_test_encoded = np.asarray(x_test_encoded)
-            self.x_test = x_test_encoded
-
-        encoding_duration = perf_counter() - start_time_encoding
-        print('Encoding of dataset finished. Duration:', encoding_duration)
-        # return [x_train_encoded_0, x_train_encoded_1,x_train_encoded_2,x_train_encoded_3]
-
-    # Returns a pairwise similarity matrix (NumTrainExamples,NumTrainExamples) of all training examples
-    def get_similarity_matrix(self, snn, encode_test_data=False):
-
-        print('Producing similarity matrix of dataset started')
-
-        x_train_unencoded = self.x_train
-
-        sim_matrix = np.zeros((x_train_unencoded.shape[0], x_train_unencoded.shape[0]))
-        for example_id in range(x_train_unencoded.shape[0]):
-            example = x_train_unencoded[example_id, :, :]
-            sims_4_example = snn.get_sims(example)
-            # print("example_id:", example_id)
-            sim_matrix[example_id, :] = sims_4_example[0]
-
-        return sim_matrix
-
-    # Draw a random pair of instances
-    def draw_pair(self, is_positive, from_test):
-
-        # Select dataset depending on parameter
-        ds_y = self.y_test if from_test else self.y_train
-        num_instances = self.num_test_instances if from_test else self.num_train_instances
-
-        return Dataset.draw_from_ds(self, ds_y, num_instances, is_positive)
-
-    def draw_pair_by_class_idx(self, is_positive, from_test, class_idx):
-
-        # select dataset depending on parameter
-        ds_y = self.y_test if from_test else self.y_train
-        num_instances = self.num_test_instances if from_test else self.num_train_instances
-
-        return Dataset.draw_from_ds(self, ds_y, num_instances, is_positive, class_idx)
-
     def get_sim_label_pair_for_notion(self, label_1: str, label_2: str, notion_of_sim: str):
         # Output similarity value under consideration of the metric
 
@@ -518,113 +348,4 @@ class FullDataset(Dataset):
 
         return float(pair_label_sim)
 
-    # used to calculate similarity value based on the local similarities of the tree characteristics
-    def get_sim_label_pair(self, index_1, index_2, dataset_type):
-        if dataset_type == 'test':
-            dataset = self.y_test_strings
-        elif dataset_type == 'train':
-            dataset = self.y_train_strings
-        else:
-            raise ValueError('Unkown dataset type. dataset_type: ', dataset_type)
 
-        class_label_1 = dataset[index_1]
-        class_label_2 = dataset[index_2]
-        sim = (self.get_sim_label_pair_for_notion(class_label_1, class_label_2, "condition")
-               + self.get_sim_label_pair_for_notion(class_label_1, class_label_2, "localization")
-               + self.get_sim_label_pair_for_notion(class_label_1, class_label_2, "failuremode")) / 3
-        return sim
-
-
-class CBSDataset(FullDataset):
-
-    def __init__(self, dataset_folder, config: Configuration, training):
-        super().__init__(dataset_folder, config, training)
-        self.group_to_indices_train = {}
-        self.group_to_indices_test = {}
-        self.group_to_negative_indices_train = {}
-
-    def load(self, print_info=True):
-        super().load(print_info)
-
-        for group, cases in self.config.group_id_to_cases.items():
-            self.group_to_indices_train[group] = [i for i, case in enumerate(self.y_train_strings) if case in cases]
-
-        for group, cases in self.config.group_id_to_cases.items():
-            self.group_to_indices_test[group] = [i for i, case in enumerate(self.y_test_strings) if case in cases]
-
-        all_indices = [i for i in range(self.x_train.shape[0])]
-        for group, pos_indices in self.group_to_indices_train.items():
-            negative_indices = [x for x in all_indices if x not in pos_indices]
-            self.group_to_negative_indices_train[group] = negative_indices
-
-    def encode(self, encoder, encode_test_data=False):
-        raise NotImplementedError('')
-
-    def draw_pair_cbs(self, is_positive, group_id):
-        pos_indices = self.group_to_indices_train.get(group_id)
-        neg_indices = self.group_to_negative_indices_train.get(group_id)
-
-        if is_positive:
-            i1, i2 = np.random.choice(pos_indices, 2, replace=True)
-            return i1, i2
-        else:
-            i1 = np.random.choice(pos_indices, 1, replace=True)[0]
-            i2 = np.random.choice(neg_indices, 1, replace=True)[0]
-            return i1, i2
-
-    def get_masking_group(self, group_id):
-
-        if group_id not in self.group_id_to_masking_vector:
-            raise ValueError('Passed group id', group_id, 'was not found in masking dictionary')
-        else:
-            mask = self.group_id_to_masking_vector.get(group_id)
-            return mask
-
-    def create_group_dataset(self, group_id):
-        dataset = GroupDataset(self.dataset_folder, self.config, self.training, self, group_id)
-        dataset.load()
-        return dataset
-
-    def get_masked_example_group(self, test_example, group_id):
-        mask = self.get_masking_group(group_id)
-        return test_example[:, mask]
-
-
-class GroupDataset(FullDataset):
-
-    def __init__(self, dataset_folder, config: Configuration, training, main_dataset: CBSDataset, group_id):
-        super().__init__(dataset_folder, config, training)
-        self.main_dataset = main_dataset
-        self.group_id = group_id
-
-    def load_files(self):
-        self.x_train = self.main_dataset.x_train.copy()  # data training
-        self.y_train_strings = np.expand_dims(self.main_dataset.y_train_strings.copy(), axis=-1)
-        self.window_times_train = self.main_dataset.window_times_train.copy()
-        self.failure_times_train = self.main_dataset.failure_times_train.copy()
-
-        # Temp solution, x_test only in here so load of full dataset works
-        self.x_test = self.main_dataset.x_test.copy()
-        self.y_test_strings = np.expand_dims(self.main_dataset.y_test_strings.copy(), axis=-1)
-        self.window_times_test = self.main_dataset.window_times_test
-        self.failure_times_test = self.main_dataset.failure_times_test
-        self.feature_names_all = self.main_dataset.feature_names_all
-
-        # Reduce training data to the cases of this group
-        indices = self.main_dataset.group_to_indices_train.get(self.group_id)
-        self.x_train = self.x_train[indices, :, :]
-        self.y_train_strings = self.y_train_strings[indices, :]
-
-        # Reduce x_train and feature_names_all to the features of this group
-        mask = self.main_dataset.group_id_to_masking_vector.get(self.group_id)
-        self.x_train = self.x_train[:, :, mask]
-        self.feature_names_all = self.feature_names_all[mask]
-
-        # Reduce metadata to relevant indices, too
-        # (currently not used by SNN, so it wouldn't be necessary but done ensure future correctness, wrong index call,
-        # may not be noticed)
-        self.window_times_train = self.window_times_train[indices, :]
-        self.failure_times_train = self.failure_times_train[indices, :]
-
-    def load(self, print_info=False):
-        super().load(print_info)

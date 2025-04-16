@@ -183,6 +183,7 @@ class Evaluator:
 
     # Calculates the final results based on the information added for each example during inference
     # Must be called after inference before print_results is called.
+    """
     def calculate_results(self):
         # A few auxiliary calculations required to calculate true positive (TP),
         # true negative (TN), false positive (FP) and false negative (FN) values for each class.
@@ -300,13 +301,15 @@ class Evaluator:
         y_score = np.array(scores)
         return y_true_one_hot, y_score, labels
 
+    
     @staticmethod
     def rate_calculation(numerator, denominator_part2):
         if numerator + denominator_part2 == 0:
             return np.NaN
         else:
             return numerator / (numerator + denominator_part2)
-
+    
+    
     def print_results(self, elapsed_time):
         y_true_array = np.stack(self.y_true, axis=0)
         y_pred_array = np.stack(self.y_pred, axis=0)
@@ -361,3 +364,4 @@ class Evaluator:
         print()
 
         print('-------------------------------------------------------------')
+    """

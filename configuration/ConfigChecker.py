@@ -1,4 +1,3 @@
-from case_based_similarity.CaseBasedSimilarity import CBS
 from configuration.Configuration import Configuration
 from neural_network.SNN import SimpleSNN
 
@@ -110,15 +109,4 @@ class ConfigChecker:
                              architecture.hyper.fc_after_cnn1d_layers is None,
                              'Additional fully connected layers shouldn\'t be used with FFNN. '
                              'fc_after_cnn1d_layers list should be empty.')
-
-        elif self.architecture_type == 'cbs':
-            architecture: CBS = architecture
-
-            one_not_none = False
-            for gh in architecture.group_handlers:
-                self.implication('ffnn' in self.config.architecture_variant,
-                                 gh.model.hyper.fc_after_cnn1d_layers is None,
-                                 'Additional fully connected layers shouldn\'t be used with FFNN. '
-                                 'fc_after_cnn1d_layers list should be empty.')
-
         self.warnings()

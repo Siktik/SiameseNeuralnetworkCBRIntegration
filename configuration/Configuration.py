@@ -66,20 +66,25 @@ class ModelConfiguration:
         # fast = encoding of case base only once, example also only once
         # ffnn = uses ffnn as distance measure
         # simple = mean absolute difference as distance measure instead of the ffnn
-        self.architecture_variants = ['standard_simple', 'standard_ffnn', 'fast_simple', 'fast_ffnn']
-        self.architecture_variant = self.architecture_variants[0]
+
+        # following two lines were set in Kleins Code
+        # self.architecture_variants = ['standard_simple', 'standard_ffnn', 'fast_simple', 'fast_ffnn']
+        # self.architecture_variant = self.architecture_variants[0]
+
+        # based on the paper by Klein the final SNN that performed best is the standard_simple with an abs_mean sim measure
+        # that abs_mean was used can be found in the paper. That standard_simple was used is not directly mentioned but
+        # by description of the SNN in the paper and the fact it is selected in the final vaersion of the accompanying code
+        # suggests this is the SNN config leading to the SNN that performed best
+        self.architecture_variant = 'standard_simple'
 
         ##
         # Determines how the similarity between two embedding vectors is determined (when a simple architecture is used)
         ##
 
-        # Most related work on time series with SNN use a fc layer at the end of a cnn to merge 1d-conv
-        # features of time steps. Can be used via adding "fc_after_cnn1d_layers" in the hyperparameter configs file
-
-        # Attention: Implementation expects a simple measure to return a similarity in the interval of [0,1]!
-        # Only use euclidean_dis for TRAINING with contrastive loss
-        self.simple_measures = ['abs_mean', 'euclidean_sim', 'euclidean_dis', 'dot_product', 'cosine']
-        self.simple_measure = self.simple_measures[0]
+        # following two lines were set in Kleins Code
+        # self.simple_measures = ['abs_mean', 'euclidean_sim', 'euclidean_dis', 'dot_product', 'cosine']
+        # self.simple_measure = self.simple_measures[0]
+        self.simple_measure = 'abs_mean'
 
         ###
         # Hyperparameters
@@ -220,121 +225,9 @@ class InferenceConfiguration:
         # If enabled the model is printed as model.png
         self.print_model = True
 
-
-class ClassificationConfiguration:
-
-    def __init__(self):
-        ###
-        # This configuration contains settings regarding the real time classification
-        # and the therefore required Kafka server and case base
-        ###
-        # Note: Folder of used model specified in GeneralConfiguration
-
-        # server information
-        self.ip = 'localhost'  # '192.168.1.10'
-        self.port = '9092'
-
-        self.error_descriptions = None  # Read from config.json
-
-        # Set to true if using the fabric simulation (FabricSimulation.py)
-        # This setting causes the live classification to read from the beginning of the topics on the Kafka server,
-        # so the simulation only has to be run only once.
-        self.testing_using_fabric_sim = True
-
-        # Enables the functionality to export the classification results back to the Kafka server
-        self.export_results_to_kafka = True
-
-        # Topic where the messages should be written to. Automatically created if not existing.
-        self.export_topic = 'classification-results'
-
-        # Determines on which topic's messages the time interval for creating an example is based on
-        # Only txt topics can be used
-        self.limiting_topic = 'txt15'
-
-        ###
-        # Case base
-        ###
-
-        # the random seed the index selection is based on
-        self.random_seed_index_selection = 42
-
-        # the number of examples per class the training data set should be reduced to for the live classification
-        self.examples_per_class = 150  # default: 150
-
         # the k of the knn classifier used for live classification
         self.k_of_knn = 10
 
-
-class PreprocessingConfiguration:
-
-    def __init__(self):
-        ###
-        # This configuration contains information and settings relevant for the data preprocessing and dataset creation
-        ###
-
-        ##
-        # Import and data visualisation
-        ##
-
-        self.plot_txts: bool = False
-        self.plot_pressure_sensors: bool = False
-        self.plot_acc_sensors: bool = False
-        self.plot_bmx_sensors: bool = False
-        self.plot_all_sensors: bool = False
-
-        self.export_plots: bool = True
-
-        self.print_column_names: bool = False
-        self.save_pkl_file: bool = True
-
-        ##
-        # Preprocessing
-        ##
-
-        # Value is used to ensure a constant frequency of the measurement time points
-        self.resample_frequency = "4ms"  # need to be the same for DataImport as well as DatasetCreation
-
-        # Define the length (= the number of timestamps) of the time series generated
-        self.time_series_length = 1000
-
-        # Define the time window length in seconds the timestamps of a single time series should be distributed on
-        self.interval_in_seconds = 4
-
-        # To some extent the time series in each examples overlaps to another one
-        # If true: interval in seconds is not considered, just time series length
-        # Default: False
-        self.use_over_lapping_windows = True
-        self.over_lapping_window_interval_in_seconds = 1  # only used if overlapping windows is true
-
-        # Configure the motor failure parameters used in case extraction
-        self.split_t1_high_low = True
-        self.type1_start_percentage = 0.5
-        self.type1_high_wear_rul = 25
-        self.type2_start_rul = 25
-
-        # seed for how the train/test data is split randomly
-        self.random_seed = 41
-
-        # share of examples used as test set
-        self.test_split_size = 0.2
-
-        ##
-        # Lists of topics separated by types that need different import variants
-        ##
-
-        self.txt_topics = ['txt15', 'txt16', 'txt17', 'txt18', 'txt19']
-
-        # Unused topics: 'bmx055-VSG-gyr','bmx055-VSG-mag','bmx055-HRS-gyr','bmx055-HRS-mag'
-        self.acc_topics = ['adxl0', 'adxl1', 'adxl2', 'adxl3']
-
-        self.bmx_acc_topics = []  # unused topics: 'bmx055-VSG-acc', 'bmx055-HRS-acc'
-
-        self.pressure_topics = ['pressureSensors']
-
-        self.pressure_sensor_names = ['Oven', 'VSG']  # 'Sorter' not used
-
-        # Combination of all topics in a single list
-        self.topic_list = self.txt_topics + self.acc_topics + self.bmx_acc_topics + self.pressure_topics
 
 
 class StaticConfiguration:
@@ -374,57 +267,16 @@ class StaticConfiguration:
         # Folder where the preprocessed training and test data for the neural network should be stored
         self.training_data_folder = '../training_data/'
 
-        # Folder where the normalisation models should be stored
-        self.scaler_folder = '../data/scaler/'
-
-        # Name of the files the dataframes are saved to after the import and cleaning
-        self.filename_pkl = 'export_data.pkl'
-        self.filename_pkl_cleaned = 'cleaned_data.pkl'
-
         # Folder where the reduced training data set aka. case base is saved to
         self.case_base_folder = '../data/case_base/'
 
-        # Folder where text files with extracted cases are saved to, for export
-        self.cases_folder = '../data/cases/'
 
-        # File from which the case information should be loaded, used in dataset creation
-        self.case_file = '../configuration/cases.csv'
 
-        # Select specific dataset with given parameter
-        # Preprocessing however will include all defined datasets
-        self.pathPrefix = self.datasets[dataset_to_import][0]
-        self.startTimestamp = self.datasets[dataset_to_import][1]
-        self.endTimestamp = self.datasets[dataset_to_import][2]
 
-        # Query to reduce datasets to the given time interval
-        self.query = "timestamp <= \'" + self.endTimestamp + "\' & timestamp >= \'" + self.startTimestamp + "\' "
 
-        # Define file names for all topics
-        self.txt15 = self.pathPrefix + 'raw_data/txt15.txt'
-        self.txt16 = self.pathPrefix + 'raw_data/txt16.txt'
-        self.txt17 = self.pathPrefix + 'raw_data/txt17.txt'
-        self.txt18 = self.pathPrefix + 'raw_data/txt18.txt'
-        self.txt19 = self.pathPrefix + 'raw_data/txt19.txt'
-
-        self.topicPressureSensorsFile = self.pathPrefix + 'raw_data/pressureSensors.txt'
-
-        self.acc_txt15_m1 = self.pathPrefix + 'raw_data/TXT15_m1_acc.txt'
-        self.acc_txt15_comp = self.pathPrefix + 'raw_data/TXT15_o8Compressor_acc.txt'
-        self.acc_txt16_m3 = self.pathPrefix + 'raw_data/TXT16_m3_acc.txt'
-        self.acc_txt18_m1 = self.pathPrefix + 'raw_data/TXT18_m1_acc.txt'
-
-        self.bmx055_HRS_acc = self.pathPrefix + 'raw_data/bmx055-HRS-acc.txt'
-        self.bmx055_HRS_gyr = self.pathPrefix + 'raw_data/bmx055-HRS-gyr.txt'
-        self.bmx055_HRS_mag = self.pathPrefix + 'raw_data/bmx055-HRS-mag.txt'
-
-        self.bmx055_VSG_acc = self.pathPrefix + 'raw_data/bmx055-VSG-acc.txt'
-        self.bmx055_VSG_gyr = self.pathPrefix + 'raw_data/bmx055-VSG-gyr.txt'
-        self.bmx055_VSG_mag = self.pathPrefix + 'raw_data/bmx055-VSG-mag.txt'
 
 
 class Configuration(
-    PreprocessingConfiguration,
-    ClassificationConfiguration,
     InferenceConfiguration,
     TrainingConfiguration,
     ModelConfiguration,
@@ -433,8 +285,6 @@ class Configuration(
 ):
 
     def __init__(self, dataset_to_import=0):
-        PreprocessingConfiguration.__init__(self)
-        ClassificationConfiguration.__init__(self)
         InferenceConfiguration.__init__(self)
         TrainingConfiguration.__init__(self)
         ModelConfiguration.__init__(self)

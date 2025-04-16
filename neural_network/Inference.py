@@ -30,8 +30,8 @@ class Inference:
         self.evaluator = Evaluator(dataset, len(self.idx_test_examples_query_pool), self.config.k_of_knn)
 
     def infer_test_dataset(self):
-        start_time = time.perf_counter()
-        count =0
+        #start_time = time.perf_counter()
+        #count = 0
         for idx_test in self.idx_test_examples_query_pool:
             # measure the similarity between the test series and the training batch series
 
@@ -40,15 +40,15 @@ class Inference:
             # check similarities of all pairs and record the index of the closest training series
 
             self.evaluator.add_single_example_results(sims, idx_test)
-            if count == 10:
-                break
-            count += 1
+            #if count == 10:
+            #    break
+            #count += 1
 
         # inference finished
-        elapsed_time = time.perf_counter() - start_time
+        # elapsed_time = time.perf_counter() - start_time
 
-        self.evaluator.calculate_results()
-        self.evaluator.print_results(elapsed_time)
+        # self.evaluator.calculate_results()
+        # self.evaluator.print_results(elapsed_time)
 
 
 
