@@ -1,20 +1,16 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
 from configuration.Configuration import Configuration
 from configuration.Hyperparameter import Hyperparameters
-from neural_network.BasicNeuralNetworks import CNN, RNN, FFNN, CNN2dWithAddInput, \
-    CNN2D
+from neural_network.BasicNeuralNetworks import CNN2dWithAddInput
 from neural_network.Dataset import FullDataset
 from neural_network.SimpleSimilarityMeasure import SimpleSimilarityMeasure
 
 
-# initialises the correct SNN variant depending on the configuration
 def initialise_snn(config: Configuration, dataset, training, for_cbs=False, group_id=''):
     print('Creating standard SNN with simple similarity measure: ', config.simple_measure)
     return SimpleSNN(config, dataset, training, for_cbs, group_id)
-
 
 
 class AbstractSimilarityMeasure:
@@ -182,50 +178,6 @@ class SimpleSNN(AbstractSimilarityMeasure):
 
         return sims_all_examples
 
-    # Called by Dataset encode() to output encoded data of the input data in size of batches
-    def encode_in_batches(self, raw_data):
-        # Debugging, will raise error for encoders with additional input because of list structure
-        # assert batch.shape[0] % 2 == 0, 'Input batch of uneven length not possible'
-
-        # pair: index+0: test, index+1: train --> only half as many results
-        if self.hyper.encoder_variant == 'cnn2dwithaddinput':
-            num_examples = raw_data[0].shape[0]
-
-        else:
-            num_examples = raw_data.shape[0]
-
-        all_examples_encoded = []
-        batch_size = self.config.sim_calculation_batch_size
-
-        for index in range(0, num_examples, batch_size):
-
-            # fix batch size if it would exceed the number of examples in the
-            if index + batch_size >= num_examples:
-                batch_size = num_examples - index
-
-            # Debugging, will raise error for encoders with additional input because of list structure
-            # assert batch_size % 2 == 0, 'Batch of uneven length not possible'
-            # assert index % 2 == 0 and (index + batch_size) % 2 == 0, 'Mapping / splitting is not correct'
-
-            # Calculation of assignments of pair indices to similarity value indices
-
-            if self.hyper.encoder_variant == 'cnn2dwithaddinput':
-                subsection_examples = raw_data[0][index:index + batch_size]
-                subsection_aux_input = raw_data[1][index:index + batch_size]
-                subsection_batch = [subsection_examples, subsection_aux_input]
-            else:
-                subsection_batch = raw_data[index:index + batch_size]
-
-            # sims_subsection = self.get_sims_for_batch(subsection_batch)
-            examples_encoded_subsection = self.encoder.model(subsection_batch, training=False)
-            # print("sims_subsection: ", examples_encoded_subsection[0].shape,
-            # examples_encoded_subsection[1].shape, examples_encoded_subsection[2].shape,
-            # examples_encoded_subsection[2].shape)
-
-            all_examples_encoded.append(examples_encoded_subsection)
-
-        return all_examples_encoded
-
     # Called by get_sims or get_sims_multiple_batches for a single example or by an optimizer directly
     @tf.function
     def get_sims_for_batch(self, batch):
@@ -304,62 +256,27 @@ class SimpleSNN(AbstractSimilarityMeasure):
 
         self.hyper = Hyperparameters()
 
-        model_folder = ''
-
-        # var is necessary
-        # noinspection PyUnusedLocal
-        file_name = ''
-
-        if for_cbs:
-            if self.config.use_individual_hyperparameters:
-                if self.training:
-                    model_folder = self.config.hyper_file + '/'
-                    file_name = group_id
-
-                else:
-                    model_folder = self.config.directory_model_to_use + group_id + '_model/'
-                    file_name = group_id
-            else:
-                if self.training:
-                    file_name = self.config.hyper_file
-                else:
-                    model_folder = self.config.directory_model_to_use + group_id + '_model/'
-                    file_name = group_id
-        else:
-            if self.training:
-                file_name = self.config.hyper_file
-            else:
-                # if testing a snn use the json file with default name in the model directory
-                model_folder = self.config.directory_model_to_use
-                file_name = 'hyperparameters_used.json'
+        # if testing a snn use the json file with default name in the model directory
+        model_folder = self.config.directory_model_to_use
+        file_name = 'hyperparameters_used.json'
 
         try:
             self.hyper.load_from_file(model_folder + file_name, self.config.use_hyper_file)
         except (NotADirectoryError, FileNotFoundError) as e:
-            if for_cbs and self.config.use_individual_hyperparameters:
-                print('Using default.json for group ', group_id)
-                self.hyper.load_from_file(model_folder + 'default.json', self.config.use_hyper_file)
-            else:
-                raise e
+            raise e
 
         self.hyper.set_time_series_properties(self.dataset)
 
         # Create encoder, necessary for all types
         input_shape_encoder = (self.hyper.time_series_length, self.hyper.time_series_depth)
 
-        if self.hyper.encoder_variant == 'cnn':
-            self.encoder = CNN(self.hyper, input_shape_encoder)
-        elif self.hyper.encoder_variant == 'cnn2d':
-            self.encoder = CNN2D(self.hyper, input_shape_encoder)
-        elif self.hyper.encoder_variant == 'cnn2dwithaddinput':
+        if self.hyper.encoder_variant == 'cnn2dwithaddinput':
             # Consideration of an encoder with multiple inputs
             if self.config.use_additional_strict_masking_for_attribute_sim:
                 self.encoder = CNN2dWithAddInput(self.hyper,
                                                  [input_shape_encoder, self.hyper.time_series_depth * 2])
             else:
                 self.encoder = CNN2dWithAddInput(self.hyper, [input_shape_encoder, self.hyper.time_series_depth])
-        elif self.hyper.encoder_variant == 'rnn':
-            self.encoder = RNN(self.hyper, input_shape_encoder)
         else:
             raise AttributeError('Unknown encoder variant:', self.hyper.encoder_variant)
 
@@ -369,22 +286,7 @@ class SimpleSNN(AbstractSimilarityMeasure):
         if cont or (not self.training and not for_cbs):
             self.encoder.load_model_weights(model_folder)
 
-        # These variants also need a ffnn
-        if self.config.architecture_variant in ['standard_ffnn', 'fast_ffnn']:
-            encoder_output_shape = self.encoder.get_output_shape()
-            # Neural Warp
-            input_shape_ffnn = (encoder_output_shape[1] ** 2, encoder_output_shape[2] * 2)
-            self.ffnn = FFNN(self.hyper, input_shape_ffnn)
-
-            self.ffnn.create_model()
-
-            if cont or (not self.training and not for_cbs):
-                self.ffnn.load_model_weights(model_folder)
-
     def print_detailed_model_info(self):
         print('')
         self.encoder.print_model_info()
         print('')
-
-
-

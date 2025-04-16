@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import sklearn
-from sklearn import metrics
 
 from neural_network.Dataset import FullDataset
 

@@ -1,7 +1,5 @@
 import json
 
-import pandas as pd
-
 
 ####
 # Note: Division into different classes only serves to improve clarity.
@@ -30,22 +28,6 @@ class GeneralConfiguration:
         # Path and file name to the specific model that should be used for testing and live classification
         self.filename_model_to_use = 'temp_snn_model_04-09_22-31-47_epoch-1748/'
         self.directory_model_to_use = self.models_folder + self.filename_model_to_use + '/'
-
-        ##
-        # Debugging - Don't use for feature implementation
-        ##
-
-        # Limit the groups that should be used for a cbs model
-        # List content must match the group ids in config.json
-        # Use = None or = [] for no restriction
-        self.cbs_groups_used = []  # ['g0','g2', 'g3', 'g4', 'g5', 'g6', 'g7']
-
-        # Select whether the group handlers of a cbs will will be executed in batches, so a single gpu is only used
-        # by a single group handler during training and inference. Enabling this can be used if the models are to big
-        # which would result in out of memory errors.
-        # If using small models (which dont have oom problems) it is recommended to disable this function,
-        # since this should result in performance improvements
-        self.batch_wise_handler_execution = True  # Default: False
 
 
 class ModelConfiguration:
@@ -94,14 +76,8 @@ class ModelConfiguration:
         self.hyper_file_folder = '../configuration/hyperparameter_combinations/'
         self.use_hyper_file = True
 
-        # If enabled each case handler of a CBS will use individual hyperparameters
-        # No effect on SNN architecture
-        self.use_individual_hyperparameters = False
-
-        # If !use_individual_hyperparameters interpreted as a single json file, else as a folder
-        # which contains json files named after the cases they should be used for
-        # If no file with this name is present the 'default.json' Config will be used
-        self.hyper_file = self.hyper_file_folder + 'cnn2d_withAddInput'  # 'individual_hyperparameters_test'  #
+        # holding the hyperparameters for the cnn2d_withAddInput encoder variant
+        self.hyper_file = self.hyper_file_folder + 'cnn2d_withAddInput'
 
         ##
         # Various settings influencing the similarity calculation
@@ -137,65 +113,7 @@ class ModelConfiguration:
         self.use_time_step_wise_simple_similarity = False  # default: False
 
 
-class TrainingConfiguration:
 
-    def __init__(self):
-        ###
-        # This configuration contains all parameters defining the way the model is trained
-        ###
-
-        # Important: CBS will only function correctly if cbs_features or a superset of it is selected
-        # cbs_features for SNNs will use the a subset of all_features, which are considered to be relevant
-        # for at least one case
-        # self.features_used will be assigned when config.json loading
-        self.feature_variants = ['all_features', 'cbs_features']
-        self.feature_variant = self.feature_variants[1]
-        self.features_used = None
-
-        # TODO Add TripletLoss, Distance-Based Logistic Loss
-        self.loss_function_variants = ['binary_cross_entropy', 'constrative_loss', 'mean_squared_error', 'huber_loss']
-        self.type_of_loss_function = self.loss_function_variants[0]
-
-        # Settings for constrative_loss
-        self.margin_of_loss_function = 2
-
-        # Reduce margin of constrative_loss or in case of binary cross entropy loss
-        # smooth negative examples by half of the sim between different labels
-        self.use_margin_reduction_based_on_label_sim = False  # default: False
-
-        self.use_early_stopping = True
-        self.early_stopping_epochs_limit = 1000
-        self.early_stopping_loss_minimum = 0.03  # Default: 0.0 (no effect), CNN2D_with_add_Input: BCE:0.03, MSE:0.01
-
-        # Parameter to control if and when a test is conducted through training
-        self.use_inference_test_during_training = False  # default False
-        self.inference_during_training_epoch_interval = 10000  # default False
-
-        # The examples of a batch during training are selected based on the number of classes (=True)
-        # and not on the number of training examples contained in the training data set (=False).
-        # This means that each training batch contains almost examples from each class (practically
-        # upsampling of minority classes). Based on recommendation of lessons learned from successful siamese models:
-        # http://openaccess.thecvf.com/content_ICCV_2019/papers/Roy_Siamese_Networks_The_Tale_of_Two_Manifolds_ICCV_2019_paper.pdf
-        self.equalClassConsideration = True  # default: False
-
-        # If equalClassConsideration is true, then this parameter defines the proportion of examples
-        # based on class distribution and example distribution.
-        # Proportion = BatchSize/2/ThisFactor. E.g., 2 = class distribution only, 4 = half, 6 = 1/3, 8 = 1/4
-        self.upsampling_factor = 4  # default: 4, means half / half
-
-        # Use a custom similarity values instead of 0 for unequal / negative pairs during batch creation
-        # These are based on the similarity matrices loaded in the dataset
-        self.use_sim_value_for_neg_pair = False  # default: False
-
-        # Select whether the training should be continued from the checkpoint defined as 'filename_model_to_use'
-        # Currently only working for SNNs, not CBS
-        self.continue_training = False  # default: False
-
-        # Defines how often loss is printed and checkpoints are saved during training
-        self.output_interval = 1
-
-        # How many model checkpoints are kept
-        self.model_files_stored = 2500
 
 
 class InferenceConfiguration:
@@ -271,14 +189,8 @@ class StaticConfiguration:
         self.case_base_folder = '../data/case_base/'
 
 
-
-
-
-
-
 class Configuration(
     InferenceConfiguration,
-    TrainingConfiguration,
     ModelConfiguration,
     GeneralConfiguration,
     StaticConfiguration,
@@ -286,10 +198,10 @@ class Configuration(
 
     def __init__(self, dataset_to_import=0):
         InferenceConfiguration.__init__(self)
-        TrainingConfiguration.__init__(self)
         ModelConfiguration.__init__(self)
         GeneralConfiguration.__init__(self)
         StaticConfiguration.__init__(self, dataset_to_import)
+        self.error_descriptions = None
 
     def load_config_json(self, file_path):
         with open(file_path, 'r') as f:
@@ -313,14 +225,6 @@ class Configuration(
         self.group_id_to_cases: dict = data['group_id_to_cases']
         self.group_id_to_features: dict = data['group_id_to_features']
 
-        # Depending on the self.feature_variant the relevant features for creating a dataset are selected
-        if self.feature_variant == 'cbs_features':
-            self.features_used = sorted(list(set(flatten(self.group_id_to_features.values()))))
-        elif self.feature_variant == 'all_features':
-            self.features_used = sorted(data['all_features'])
-        else:
-            raise AttributeError('Unknown feature variant:', self.feature_variant)
-
     def get_relevant_features_group(self, case):
         group = self.case_to_group_id.get(case)
         return self.group_id_to_features.get(group)
@@ -332,42 +236,6 @@ class Configuration(
         else:
             return self.case_to_individual_features.get(case)
 
-    # return the error case description for the passed label
-    def get_error_description(self, error_label: str):
-        return self.error_descriptions[error_label]
-
-    def get_connection(self):
-        return self.ip + ':' + self.port
-
-    # import the timestamps of each dataset and class from the cases.csv file
-    def import_timestamps(self):
-        datasets = []
-        number_to_array = {}
-
-        with open(self.case_file, 'r') as file:
-            for line in file.readlines():
-                parts = line.split(',')
-                parts = [part.strip(' ') for part in parts]
-                # print("parts: ", parts)
-                # dataset, case, start, end = parts
-                dataset = parts[0]
-                case = parts[1]
-                start = parts[2]
-                end = parts[3]
-                failure_time = parts[4].rstrip()
-
-                timestamp = (gen_timestamp(case, start, end, failure_time))
-
-                if dataset in number_to_array.keys():
-                    number_to_array.get(dataset).append(timestamp)
-                else:
-                    ds = [timestamp]
-                    number_to_array[dataset] = ds
-
-        for key in number_to_array.keys():
-            datasets.append(number_to_array.get(key))
-
-        self.cases_datasets = datasets
 
     def print_detailed_config_used_for_training(self):
         print("--- Current Configuration ---")
@@ -384,19 +252,6 @@ class Configuration(
         print("Similarity Measure related:")
         print("- useFeatureWeightedSimilarity: ", self.useFeatureWeightedSimilarity)
         print("- use_time_step_wise_simple_similarity: ", self.use_time_step_wise_simple_similarity)
-        print("- feature_variant: ", self.feature_variant)
-        print("")
-        print("Training related:")
-        print("- type_of_loss_function: ", self.type_of_loss_function)
-        print("- margin_of_loss_function: ", self.margin_of_loss_function)
-        print("- use_margin_reduction_based_on_label_sim: ", self.use_margin_reduction_based_on_label_sim)
-        print("- use_sim_value_for_neg_pair: ", self.use_sim_value_for_neg_pair)
-        print("- use_early_stopping: ", self.use_early_stopping)
-        print("- early_stopping_epochs_limit: ", self.early_stopping_epochs_limit)
-        print("- early_stopping_loss_minimum: ", self.early_stopping_loss_minimum)
-        print("- equalClassConsideration: ", self.equalClassConsideration)
-        print("- upsampling_factor: ", self.upsampling_factor)
-        print("- model_files_stored: ", self.model_files_stored)
         print("")
         print("Inference related:")
         print("- case_base_for_inference: ", self.case_base_for_inference)
@@ -405,13 +260,3 @@ class Configuration(
         print("--- ---")
 
 
-def gen_timestamp(label: str, start: str, end: str, failure_time: str):
-    start_as_time = pd.to_datetime(start, format='%Y-%m-%d %H:%M:%S.%f')
-    end_as_time = pd.to_datetime(end, format='%Y-%m-%d %H:%M:%S.%f')
-    if failure_time != "no_failure":
-        failure_as_time = pd.to_datetime(failure_time, format='%Y-%m-%d %H:%M:%S')
-    else:
-        failure_as_time = ""
-
-    # return tuple consisting of a label and timestamps in the pandas format
-    return label, start_as_time, end_as_time, failure_as_time

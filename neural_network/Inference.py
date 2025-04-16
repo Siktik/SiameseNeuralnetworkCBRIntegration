@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 
 import tensorflow as tf
 
@@ -49,7 +48,6 @@ class Inference:
 
         # self.evaluator.calculate_results()
         # self.evaluator.print_results(elapsed_time)
-
 
 
 def main():

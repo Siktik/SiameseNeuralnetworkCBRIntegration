@@ -1,5 +1,3 @@
-from time import perf_counter
-
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
@@ -16,8 +14,6 @@ class Dataset:
         self.x_train = None  # training data (examples,time,channels)
         self.y_train = None  # One hot encoded class labels (numExamples,numClasses)
         self.y_train_strings = None  # class labels as strings (numExamples,1)
-        self.one_hot_encoder_labels = None  # one hot label encoder
-        self.classes_Unique_oneHotEnc = None
         self.num_train_instances = None
         self.num_instances = None
 
@@ -30,66 +26,12 @@ class Dataset:
         # the names of all features of the dataset loaded from files
         self.feature_names_all = None
 
-        self.x_train_TSFresh_features = None
-        self.x_test_TSFresh_features = None
-        self.relevant_features_by_TSFresh = None
+
 
     def load(self):
         raise NotImplemented('Not implemented for abstract class')
 
-    @staticmethod
-    def draw_from_ds(self, dataset, num_instances, is_positive, class_idx=None):
-        # dataset: vector with one-hot encoded label of the data set
 
-        # draw as long as is_positive criterion is not satisfied
-
-        # draw two random examples index
-        if class_idx is None:
-            while True:
-                first_idx = np.random.randint(0, num_instances, size=1)[0]
-                second_idx = np.random.randint(0, num_instances, size=1)[0]
-                # return the two indexes if they match the is_positive criterion
-                if is_positive:
-                    if np.array_equal(dataset[first_idx], dataset[second_idx]):
-                        return first_idx, second_idx
-                else:
-                    if not np.array_equal(dataset[first_idx], dataset[second_idx]):
-                        return first_idx, second_idx
-        else:
-            # examples are drawn by a given class index
-            # contains idx values of examples from the given class
-            class_idx_arr = self.class_idx_to_ex_idxs_train[class_idx]
-
-            # print("class_idx:", class_idx, " class_idx_arr: ", class_idx_arr, "self.class_idx_to_class_string: ",
-            #      self.class_idx_to_class_string[class_idx])
-
-            # Get a random idx of an example that is part of this class
-            first_rand_idx = np.random.randint(0, len(class_idx_arr), size=1)[0]
-            first_idx = class_idx_arr[first_rand_idx]
-
-            if is_positive:
-                while True:
-                    second_rand_idx = np.random.randint(0, len(class_idx_arr), size=1)[0]
-                    second_idx = class_idx_arr[second_rand_idx]
-                    if first_idx != second_idx:
-                        return first_idx[0], second_idx[0]
-            else:
-                while True:
-                    uniform_sampled_class = np.random.randint(low=0,
-                                                              high=len(self.y_train_strings_unique),
-                                                              size=1)
-                    class_idx_arr_neg = self.class_idx_to_ex_idxs_train[uniform_sampled_class[0]]
-                    second_rand_idx_neg = np.random.randint(0, len(class_idx_arr_neg), size=1)[0]
-                    # print("uniform_sampled_class: ", uniform_sampled_class, "class_idx_arr_neg: ", class_idx_arr_neg,
-                    #       "second_rand_idx_neg: ", second_rand_idx_neg)
-
-                    second_idx = class_idx_arr_neg[second_rand_idx_neg]
-                    # second_idx = np.random.randint(0, num_instances, size=1)[0]
-
-                    if second_idx not in class_idx_arr[:, 0]:
-                        # print("class_idx_arr: ", class_idx_arr, " - uniform_sampled_class: ",
-                        # uniform_sampled_class[0])
-                        return first_idx[0], second_idx[0]
 
 
 class FullDataset(Dataset):
@@ -102,10 +44,6 @@ class FullDataset(Dataset):
         self.y_test_strings = None
         self.num_test_instances = None
         self.training = training
-
-        self.x_train_TSFresh_features = None
-        self.x_test_TSFresh_features = None
-        self.relevant_features_by_TSFresh = None
 
         # total number of classes
         self.num_classes = None

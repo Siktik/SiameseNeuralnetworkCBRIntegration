@@ -64,6 +64,8 @@ def connectToJava():
             break
         if cases == "START":
             print("do retrieval and sendback the results")
+
+
             socket.send_string("Results of retrieval")
             break
         if cases == "FINISHED_QUERY_CASES":
@@ -92,7 +94,11 @@ def connectToJava():
 
 
         if cases == "FINISHED_CASE_BASE":
-            print()
+            case_base_timeseries_array = np.array(timeseries_array)
+            case_base_window_times = np.array(window_times, dtype=str)
+            case_base_recording_sequences = np.array(recording_sequences, dtype=str).reshape(-1, 1)
+            case_base_labels = np.array(labels, dtype=str).reshape(-1, 1)
+            case_base_ids = np.array(ids, dtype=str).reshape(-1, 1)
             socket.send_string("Ready To Start Retrieval")  # send a reply back
             continue
 
