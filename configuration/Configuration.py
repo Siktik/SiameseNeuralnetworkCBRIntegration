@@ -29,6 +29,8 @@ class GeneralConfiguration:
         self.filename_model_to_use = 'temp_snn_model_04-09_22-31-47_epoch-1748/'
         self.directory_model_to_use = self.models_folder + self.filename_model_to_use + '/'
 
+        self.number_of_subsequent_retrievals = 1
+
 
 class ModelConfiguration:
 
@@ -113,9 +115,6 @@ class ModelConfiguration:
         self.use_time_step_wise_simple_similarity = False  # default: False
 
 
-
-
-
 class InferenceConfiguration:
 
     def __init__(self):
@@ -126,11 +125,6 @@ class InferenceConfiguration:
         #   - Folder of used model is specified in GeneralConfiguration
         #   - Does not include settings for BaselineTester
 
-        # If enabled only the reduced training dataset (via CaseBaseExtraction) will be used for
-        # similarity assessment during inference.
-        # Please note that the case base extraction only reduces the training data but fully copies the test data
-        # so all test example will still be evaluated even if this is enabled
-        self.case_base_for_inference = True  # default: False
 
         # Parameter to control the size / number of the queries used for evaluation
         self.inference_with_failures_only = False  # default: False
@@ -145,7 +139,6 @@ class InferenceConfiguration:
 
         # the k of the knn classifier used for live classification
         self.k_of_knn = 10
-
 
 
 class StaticConfiguration:
@@ -168,9 +161,6 @@ class StaticConfiguration:
 
         self.case_to_individual_features = None
         self.case_to_individual_features_strict = None
-        self.case_to_group_id = None
-        self.group_id_to_cases = None
-        self.group_id_to_features = None
 
         self.zeroOne, self.intNumbers, self.realValues, self.categoricalValues = None, None, None, None
 
@@ -187,6 +177,9 @@ class StaticConfiguration:
 
         # Folder where the reduced training data set aka. case base is saved to
         self.case_base_folder = '../data/case_base/'
+
+        # the first 200 cases from the FullDataSet, only for simple functionality test
+        self.limited_training_data_folder = '../data/limited_training_data/'
 
 
 class Configuration(
@@ -207,35 +200,18 @@ class Configuration(
         with open(file_path, 'r') as f:
             data = json.load(f)
 
-        self.datasets = data['datasets']
-        self.prefixes = data['prefixes']
         self.error_descriptions = data['error_descriptions']
         self.zeroOne = data['zeroOne']
         self.intNumbers = data['intNumbers']
         self.realValues = data['realValues']
         self.categoricalValues = data['categoricalValues']
 
-        def flatten(list_of_lists):
-            return [item for sublist in list_of_lists for item in sublist]
-
         self.case_to_individual_features = data['relevant_features']
-        if self.use_additional_strict_masking_for_attribute_sim:
-            self.case_to_individual_features_strict = data['relevant_features_strict']
-        self.case_to_group_id: dict = data['case_to_group_id']
-        self.group_id_to_cases: dict = data['group_id_to_cases']
-        self.group_id_to_features: dict = data['group_id_to_features']
-
-    def get_relevant_features_group(self, case):
-        group = self.case_to_group_id.get(case)
-        return self.group_id_to_features.get(group)
+        self.case_to_individual_features_strict = data['relevant_features_strict']
 
     # returns individual defined features (instead of group features)
     def get_relevant_features_case(self, case):
-        if self.use_additional_strict_masking_for_attribute_sim:
-            return [self.case_to_individual_features.get(case), self.case_to_individual_features_strict.get(case)]
-        else:
-            return self.case_to_individual_features.get(case)
-
+        return [self.case_to_individual_features.get(case), self.case_to_individual_features_strict.get(case)]
 
     def print_detailed_config_used_for_training(self):
         print("--- Current Configuration ---")
@@ -258,5 +234,3 @@ class Configuration(
         print("- split_sim_calculation: ", self.split_sim_calculation)
         print("- sim_calculation_batch_size: ", self.sim_calculation_batch_size)
         print("--- ---")
-
-

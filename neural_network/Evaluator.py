@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import sklearn
+from typing import Dict, Tuple, List
 
 from neural_network.Dataset import FullDataset
 
@@ -55,6 +56,8 @@ class Evaluator:
         self.quality_fails_condition_quality = 0
 
         self.example_counter_fails = 0
+
+        self.retrieval_results: Dict[int, List[Tuple[int, float]]] = dict()
 
         major_version = int(sklearn.__version__.split('.')[1])
         if major_version < 22:
@@ -161,24 +164,28 @@ class Evaluator:
         for row in example_results:
             print("{: <25} {: <25}".format(*row))
         print()
-        self.knn_output(sims, nearest_neighbors_ranked_indices, nbr_tested_as_string)
+        ids_with_sim = self.knn_output(sims, nearest_neighbors_ranked_indices, nbr_tested_as_string)
+        self.retrieval_results[test_example_index] = ids_with_sim
         print()
         print()
 
-    def knn_output(self, sims, ranking_nearest_neighbors_idx, nbr_tested_example):
+    def knn_output(self, sims, ranking_nearest_neighbors_idx, nbr_tested_example) -> List[Tuple[int, float]]:
         knn_results = []
+        ids_with_sims = []
         for i in range(self.k_of_knn):
             index = ranking_nearest_neighbors_idx[i]
             row = [i + 1, 'Class: ' + self.dataset.y_train_strings[index],
                    'Sim: ' + str(round(sims[index], 6)),
-                   'Case ID: ' + str(index),
+                   'Case ID at index: ' + str(index),
                    'Failure: ' + str(self.dataset.failure_times_train[index]),
                    'Window: ' + self.dataset.get_time_window_str(index, 'train')]
             knn_results.append(row)
+            ids_with_sims.append((int(index), float(round(sims[index], 10))))
 
         print("K-nearest Neighbors of", nbr_tested_example, ':')
         for row in knn_results:
             print("{: <3} {: <60} {: <20} {: <20} {: <20} {: <20}".format(*row))
+        return ids_with_sims
 
     # Calculates the final results based on the information added for each example during inference
     # Must be called after inference before print_results is called.

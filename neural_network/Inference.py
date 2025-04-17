@@ -1,15 +1,12 @@
 import os
 import sys
-
-import tensorflow as tf
+from typing import Dict, List, Tuple
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 from neural_network.Evaluator import Evaluator
-from configuration.ConfigChecker import ConfigChecker
 from configuration.Configuration import Configuration
 from neural_network.Dataset import FullDataset
-from neural_network.SNN import initialise_snn
 
 
 class Inference:
@@ -20,15 +17,13 @@ class Inference:
         self.architecture = architecture
         self.dataset: FullDataset = dataset
 
-        if self.config.inference_with_failures_only:
-            self.idx_test_examples_query_pool = self.dataset.get_indices_failures_only_test()
-        else:
-            self.idx_test_examples_query_pool = range(self.dataset.num_test_instances)
-            #self.idx_test_examples_query_pool = range(123,135)
+
+        self.idx_test_examples_query_pool = range(self.dataset.num_test_instances)
+        #self.idx_test_examples_query_pool = range(123,135)
 
         self.evaluator = Evaluator(dataset, len(self.idx_test_examples_query_pool), self.config.k_of_knn)
 
-    def infer_test_dataset(self):
+    def infer_test_dataset(self) -> Dict[int, List[Tuple[int, float]]]:
         #start_time = time.perf_counter()
         #count = 0
         for idx_test in self.idx_test_examples_query_pool:
@@ -42,47 +37,10 @@ class Inference:
             #if count == 10:
             #    break
             #count += 1
-
+        return self.evaluator.retrieval_results
         # inference finished
         # elapsed_time = time.perf_counter() - start_time
 
         # self.evaluator.calculate_results()
         # self.evaluator.print_results(elapsed_time)
 
-
-def main():
-    # suppress debugging messages of TensorFlow
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-    config = Configuration()
-
-    if config.case_base_for_inference:
-        dataset: FullDataset = FullDataset(config.case_base_folder, config, training=False)
-    else:
-        dataset: FullDataset = FullDataset(config.training_data_folder, config, training=False)
-
-    dataset.load()
-
-    checker = ConfigChecker(config, dataset, 'snn', training=False)
-    checker.pre_init_checks()
-
-    architecture = initialise_snn(config, dataset, False)
-
-    checker.post_init_checks(architecture)
-
-    inference = Inference(config, architecture, dataset)
-
-    if config.print_model:
-        tf.keras.utils.plot_model(architecture.encoder.model, to_file='model.png', show_shapes=True, expand_nested=True)
-
-    print('Ensure right model file is used:')
-    print(config.directory_model_to_use, '\n')
-
-    inference.infer_test_dataset()
-
-
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass

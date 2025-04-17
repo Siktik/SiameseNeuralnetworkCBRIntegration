@@ -26,12 +26,8 @@ class Dataset:
         # the names of all features of the dataset loaded from files
         self.feature_names_all = None
 
-
-
-    def load(self):
+    def load(self, useNPYCaseBase: bool, useNPYQueries: bool, queries, casebase):
         raise NotImplemented('Not implemented for abstract class')
-
-
 
 
 class FullDataset(Dataset):
@@ -92,33 +88,38 @@ class FullDataset(Dataset):
         self.df_label_sim_failuremode = None
         self.df_label_sim_condition = None
 
-    def load_files(self, features, labels, windowTimes, recordingSequence):
+    #if useNPYCaseBase then casebase param is empty
+    def load_files(self, useNPYCaseBase, useNPYQueries, queries, caseBase):
 
-        self.x_train = np.load(self.dataset_folder + 'train_features.npy')  # data training
-        self.y_train_strings = np.expand_dims(np.load(self.dataset_folder + 'train_labels.npy'), axis=-1)
-        self.window_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_window_times.npy'), axis=-1)
-        self.failure_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_failure_times.npy'), axis=-1)
+        if useNPYCaseBase:
+            self.x_train = np.load(self.dataset_folder + 'train_features.npy')  # data training
+            self.y_train_strings = np.expand_dims(np.load(self.dataset_folder + 'train_labels.npy'), axis=-1)
+            self.window_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_window_times.npy'), axis=-1)
+            self.failure_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_failure_times.npy'), axis=-1)
+        else:
+            self.x_train = caseBase['timeseries_array']
+            self.y_train_strings = caseBase['labels']
+            self.window_times_train = caseBase['window_times']
+            self.failure_times_train = caseBase['recording_sequences']
 
+        if useNPYQueries:
+            self.x_test = np.load(self.dataset_folder + 'test_features.npy')  # data testing
+            self.y_test_strings = np.expand_dims(np.load(self.dataset_folder + 'test_labels.npy'), axis=-1)
+            self.window_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_window_times.npy'), axis=-1)
+            self.failure_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_failure_times.npy'), axis=-1)
+        else:
+            self.x_test = queries['timeseries_array']
+            self.y_test_strings = queries['labels']
+            self.window_times_test = queries['window_times']
+            self.failure_times_test = queries['recording_sequences']
 
-        self.x_test = np.load(self.dataset_folder + 'test_features.npy')  # data testing
-        self.y_test_strings = np.expand_dims(np.load(self.dataset_folder + 'test_labels.npy'), axis=-1)
-        self.window_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_window_times.npy'), axis=-1)
-        self.failure_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_failure_times.npy'), axis=-1)
-        
-        '''
-        self.x_test= features
-        self.y_test_strings = labels
-        self.window_times_test = np.expand_dims(windowTimes, axis=-1)
-        self.failure_times_test = recordingSequence
-        '''
-        print(windowTimes)
         print(self.y_test_strings.shape)
         print(self.window_times_test.shape)
         print(self.failure_times_test.shape)
         self.feature_names_all = np.load(self.dataset_folder + 'feature_names.npy')  # names of the features (3. dim)
 
-    def load(self, features, labels, windowTimes, recordingSequence, print_info=True):
-        self.load_files(features, labels, windowTimes, recordingSequence)
+    def load(self, useNPYCaseBase, useNPYQueries, queries, caseBase, print_info=True):
+        self.load_files(useNPYCaseBase, useNPYQueries, queries, caseBase)
 
         # create a encoder, sparse output must be disabled to get the intended output format
         # added categories='auto' to use future behavior
@@ -203,7 +204,6 @@ class FullDataset(Dataset):
             # print('Classes in total: ', self.classes_total)
             print()
 
-
     def load_sim_matrices(self):
         # load a matrix with pair-wise similarities between labels in respect
         # to different metrics
@@ -219,23 +219,11 @@ class FullDataset(Dataset):
 
     def calculate_maskings(self):
         for case in self.classes_total:
+            relevant_features_for_case = self.config.get_relevant_features_case(case)
 
-            if self.config.individual_relevant_feature_selection:
-                relevant_features_for_case = self.config.get_relevant_features_case(case)
-            else:
-                relevant_features_for_case = self.config.get_relevant_features_group(case)
-
-            if self.config.use_additional_strict_masking_for_attribute_sim:
-                masking1 = np.isin(self.feature_names_all, relevant_features_for_case[0])
-                masking2 = np.isin(self.feature_names_all, relevant_features_for_case[1])
-                self.class_label_to_masking_vector[case] = [masking1, masking2]
-            else:
-                masking = np.isin(self.feature_names_all, relevant_features_for_case)
-                self.class_label_to_masking_vector[case] = masking
-
-        for group_id, features in self.config.group_id_to_features.items():
-            masking = np.isin(self.feature_names_all, features)
-            self.group_id_to_masking_vector[group_id] = masking
+            masking1 = np.isin(self.feature_names_all, relevant_features_for_case[0])
+            masking2 = np.isin(self.feature_names_all, relevant_features_for_case[1])
+            self.class_label_to_masking_vector[case] = [masking1, masking2]
 
     # returns a boolean array with values depending on whether the attribute at this index is relevant
     # for the class of the passed label
@@ -285,5 +273,3 @@ class FullDataset(Dataset):
             pair_label_sim = 0
 
         return float(pair_label_sim)
-
-
