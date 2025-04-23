@@ -179,7 +179,7 @@ class StaticConfiguration:
         self.case_base_folder = '../data/case_base/'
 
         # the first 200 cases from the FullDataSet, only for simple functionality test
-        self.limited_training_data_folder = '../data/limited_training_data/'
+        self.limited_training_data_folder = '../data/limited_dataSet/'
 
 
 class Configuration(

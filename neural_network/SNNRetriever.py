@@ -52,6 +52,7 @@ def connectToJava(config: Configuration):
     }
     snn = None
     dataset = None
+    use_only_npy_files: bool = False
 
 
 
@@ -98,9 +99,15 @@ def connectToJava(config: Configuration):
             retrieval_results: Dict[int, List[Tuple[int, float]]] = inference.infer_test_dataset()
             json_ready_results = []
             for queryIndex, value in retrieval_results.items():
-                print("query with index ", queryIndex, " and id ", queries['ids'][queryIndex])
+                query_id_str: str= ""
+                if use_only_npy_files:
+                    print("query with index ", queryIndex, " and id Train_", queryIndex+1)
+                    query_id_str = f"TEST_{queryIndex+1}"
+                else:
+                    print("query with index ", queryIndex, " and id ", queries['ids'][queryIndex])
+                    query_id_str = str(queries['ids'][queryIndex])
+
                 print("printing result list for ", config.k_of_knn," nearest neighbors")
-                query_id_str = str(queries['ids'][queryIndex])
                 result_list = []
                 for caseIndexFromCB, sim in value:
                     if case_base_to_use == "RECEIVING_CASE_BASE":
@@ -110,7 +117,7 @@ def connectToJava(config: Configuration):
                     else:
                         print("printing results on  npy case base "+ str(case_base_to_use))
                         print("Case index ", caseIndexFromCB," with id Train_", caseIndexFromCB + 1, " and  sim: ", sim)
-                        case_id_str = f"Train_{caseIndexFromCB}"
+                        case_id_str = f"TRAIN_{caseIndexFromCB+1}"
                     result_list.append({
                         "caseID": case_id_str,
                         "similarity": float(sim)  # ensure it's a float

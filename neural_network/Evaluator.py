@@ -180,7 +180,7 @@ class Evaluator:
                    'Failure: ' + str(self.dataset.failure_times_train[index]),
                    'Window: ' + self.dataset.get_time_window_str(index, 'train')]
             knn_results.append(row)
-            ids_with_sims.append((int(index), float(round(sims[index], 10))))
+            ids_with_sims.append((int(index), float(round(sims[index], 6))))
 
         print("K-nearest Neighbors of", nbr_tested_example, ':')
         for row in knn_results:
