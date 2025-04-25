@@ -26,13 +26,13 @@ class Dataset:
         # the names of all features of the dataset loaded from files
         self.feature_names_all = None
 
-    def load(self, useNPYCaseBase: bool, useNPYQueries: bool, queries, casebase):
+    def load(self, queries, casebase):
         raise NotImplemented('Not implemented for abstract class')
 
 
 class FullDataset(Dataset):
 
-    def __init__(self, dataset_folder, config: Configuration, training):
+    def __init__(self, dataset_folder, config: Configuration, feature_names, training):
         super().__init__(dataset_folder, config)
 
         self.x_test = None
@@ -41,8 +41,6 @@ class FullDataset(Dataset):
         self.num_test_instances = None
         self.training = training
 
-        # total number of classes
-        self.num_classes = None
 
         # dictionary with key: class as integer and value: array with index positions
         self.class_idx_to_ex_idxs_train = {}
@@ -55,7 +53,7 @@ class FullDataset(Dataset):
         self.num_instances_by_class_test = None
 
         # np array that contains a list classes that occur in training OR test data set
-        self.classes_total = None
+        self.classes_total = feature_names
 
         # np array that contains a list classes that occur in training AND test data set
         self.classes_in_both = None
@@ -64,13 +62,6 @@ class FullDataset(Dataset):
         # at this index is relevant for the class described with the label key
         self.class_label_to_masking_vector = {}
 
-        self.group_id_to_masking_vector = {}
-
-        #
-        # new
-        #
-
-        self.y_train_strings_unique = None
         self.y_test_strings_unique = None
 
         # additional information for each example about their window time frame and failure occurrence time
@@ -89,37 +80,33 @@ class FullDataset(Dataset):
         self.df_label_sim_condition = None
 
     #if useNPYCaseBase then casebase param is empty
-    def load_files(self, useNPYCaseBase, useNPYQueries, queries, caseBase):
+    def load_files(self, queries, caseBase):
 
-        if useNPYCaseBase:
-            self.x_train = np.load(self.dataset_folder + 'train_features.npy')  # data training
-            self.y_train_strings = np.expand_dims(np.load(self.dataset_folder + 'train_labels.npy'), axis=-1)
-            self.window_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_window_times.npy'), axis=-1)
-            self.failure_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_failure_times.npy'), axis=-1)
-        else:
-            self.x_train = caseBase['timeseries_array']
-            self.y_train_strings = caseBase['labels']
-            self.window_times_train = caseBase['window_times']
-            self.failure_times_train = caseBase['recording_sequences']
 
-        if useNPYQueries:
+        self.x_train = np.array(caseBase['timeSeries']).T
+        self.y_train_strings = np.array([caseBase['label']]).reshape(-1, 1)
+        self.window_times_train = np.expand_dims(np.array([caseBase['startDate'], 'to', caseBase['endDate']]), axis=-1)
+        self.failure_times_train = np.array([caseBase['recordingSequence']])
+
+        '''if useNPYQueries:
             self.x_test = np.load(self.dataset_folder + 'test_features.npy')  # data testing
             self.y_test_strings = np.expand_dims(np.load(self.dataset_folder + 'test_labels.npy'), axis=-1)
             self.window_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_window_times.npy'), axis=-1)
             self.failure_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_failure_times.npy'), axis=-1)
         else:
-            self.x_test = queries['timeseries_array']
-            self.y_test_strings = queries['labels']
-            self.window_times_test = queries['window_times']
-            self.failure_times_test = queries['recording_sequences']
+        '''
+        self.x_test = np.array(queries['timeSeries']).T
+        self.y_test_strings = np.array([queries['label']]).reshape(-1, 1)
+        self.window_times_test = np.expand_dims(np.array([queries['startDate'], 'to', queries['endDate']]),axis=-1)
+        self.failure_times_test = np.array([queries['recordingSequence']])
 
         print(self.y_test_strings.shape)
         print(self.window_times_test.shape)
         print(self.failure_times_test.shape)
         self.feature_names_all = np.load(self.dataset_folder + 'feature_names.npy')  # names of the features (3. dim)
 
-    def load(self, useNPYCaseBase, useNPYQueries, queries, caseBase, print_info=True):
-        self.load_files(useNPYCaseBase, useNPYQueries, queries, caseBase)
+    def load(self, queries, caseBase, print_info=True):
+        self.load_files(queries, caseBase)
 
         # create a encoder, sparse output must be disabled to get the intended output format
         # added categories='auto' to use future behavior
@@ -135,49 +122,32 @@ class FullDataset(Dataset):
         self.y_test = one_hot_encoder.transform(self.y_test_strings)
 
         # reduce to 1d array
-        self.y_train_strings = np.squeeze(self.y_train_strings)
-        self.y_test_strings = np.squeeze(self.y_test_strings)
+        self.y_train_strings = np.squeeze(self.y_train_strings, axis=1)
+        self.y_test_strings = np.squeeze(self.y_test_strings, axis=1)
 
         ##
         # safe information about the dataset
         ##
 
         # length of the first array dimension is the number of examples
-        self.num_train_instances = self.x_train.shape[0]
-        self.num_test_instances = self.x_test.shape[0]
+        self.num_train_instances = 1
+        self.num_test_instances = 1
 
         # the total sum of examples
         self.num_instances = self.num_train_instances + self.num_test_instances
 
         # length of the second array dimension is the length of the time series
-        self.time_series_length = self.x_train.shape[1]
+        self.time_series_length = self.x_train.shape[0]
 
         # length of the third array dimension is the number of channels = (independent) readings at this point of time
-        self.time_series_depth = self.x_train.shape[2]
+        self.time_series_depth = self.x_train.shape[1]
 
-        # get the unique classes and the corresponding number
-        self.classes_total = np.unique(np.concatenate((self.y_train_strings, self.y_test_strings), axis=0))
-        self.classes_Unique_oneHotEnc = one_hot_encoder.transform(np.expand_dims(self.classes_total, axis=1))
-        self.num_classes = self.classes_total.size
-
-        # Create two dictionaries to link/associate each class with all its training examples
-        for i in range(self.num_classes):
-            self.class_idx_to_ex_idxs_train[i] = np.argwhere(self.y_train[:, i] > 0)
-            self.class_idx_to_ex_idxs_test[i] = np.argwhere(self.y_test[:, i] > 0)
-
-        # collect number of instances for each class in training and test
-        self.y_train_strings_unique, counts = np.unique(self.y_train_strings, return_counts=True)
-        self.num_instances_by_class_train = np.asarray((self.y_train_strings_unique, counts)).T
         self.y_test_strings_unique, counts = np.unique(self.y_test_strings, return_counts=True)
         self.num_instances_by_class_test = np.asarray((self.y_test_strings_unique, counts)).T
 
-        # calculate the number of classes that are the same in test and train
-        self.classes_in_both = np.intersect1d(self.num_instances_by_class_test[:, 0],
-                                              self.num_instances_by_class_train[:, 0])
-
         # required for inference metric calculation
         # get all failures and labels as unique entry
-        failure_times_label = np.stack((self.y_test_strings, np.squeeze(self.failure_times_test))).T
+        failure_times_label = np.stack((self.y_test_strings, self.failure_times_test)).T
         # extract unique permutations between failure occurrence time and labeled entry
         unique_failure_times_label, failure_times_count = np.unique(failure_times_label, axis=0, return_counts=True)
         # remove noFailure entries
@@ -186,7 +156,6 @@ class FullDataset(Dataset):
         self.failure_times_count = np.delete(failure_times_count, idx, 0)
 
         self.calculate_maskings()
-        self.load_sim_matrices()
 
         # data
         # 1. dimension: example
@@ -198,24 +167,12 @@ class FullDataset(Dataset):
             print('Dataset loaded:')
             print('Shape of training set (example, time, channels):', self.x_train.shape)
             print('Shape of test set (example, time, channels):', self.x_test.shape)
-            print('Num of classes in train and test together:', self.num_classes)
             # print('Classes used in training: ', len(self.y_train_strings_unique)," :",self.y_train_strings_unique)
             # print('Classes used in test: ', len(self.y_test_strings_unique)," :", self.y_test_strings_unique)
             # print('Classes in total: ', self.classes_total)
             print()
 
-    def load_sim_matrices(self):
-        # load a matrix with pair-wise similarities between labels in respect
-        # to different metrics
-        self.df_label_sim_failuremode = pd.read_csv(self.dataset_folder + 'FailureMode_Sim_Matrix.csv', sep=';',
-                                                    index_col=0)
-        self.df_label_sim_failuremode.index = self.df_label_sim_failuremode.index.str.replace('\'', '')
-        self.df_label_sim_localization = pd.read_csv(self.dataset_folder + 'Localization_Sim_Matrix.csv', sep=';',
-                                                     index_col=0)
-        self.df_label_sim_localization.index = self.df_label_sim_localization.index.str.replace('\'', '')
-        self.df_label_sim_condition = pd.read_csv(self.dataset_folder + 'Condition_Sim_Matrix.csv', sep=';',
-                                                  index_col=0)
-        self.df_label_sim_condition.index = self.df_label_sim_condition.index.str.replace('\'', '')
+
 
     def calculate_maskings(self):
         for case in self.classes_total:

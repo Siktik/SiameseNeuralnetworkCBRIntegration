@@ -70,7 +70,7 @@ class Evaluator:
     def get_nbr_correctly_classified(self):
         return np.diag(self.multi_class_results).sum()
 
-    def add_single_example_results(self, sims, test_example_index):
+    def add_single_example_results(self, sims):
         ###
         # Get the relevant information about the results of this example
         ###
@@ -79,7 +79,7 @@ class Evaluator:
         nearest_neighbors_ranked_indices = np.argsort(-sims)
 
         # Get the true label stored in the dataset
-        true_class = self.dataset.y_test_strings[test_example_index]
+        true_class = self.dataset.y_test_strings[0]
 
         # Get the class of the example with the highest sim = smallest distance
         max_sim_class = self.dataset.y_train_strings[nearest_neighbors_ranked_indices[0]]

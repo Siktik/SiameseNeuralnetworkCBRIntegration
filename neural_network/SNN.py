@@ -101,10 +101,10 @@ class SimpleSNN(AbstractSimilarityMeasure):
             example = np.expand_dims(example, axis=0)
 
         # get in array that contains example as many times as there are training examples
-        example_repeated = np.repeat(example, x_train.shape[0], axis=0)
+        example_repeated = np.repeat(example, 1, axis=0)
 
         # create an empty array with same shape as x_train but twice as many examples
-        shape_combined = (2 * x_train.shape[0], x_train.shape[1], x_train.shape[2])
+        shape_combined = (2, x_train.shape[0], x_train.shape[1])
         batch_combined = np.empty(shape_combined, dtype=x_train.dtype)
 
         # Inserting the examples in alternating order
@@ -120,7 +120,7 @@ class SimpleSNN(AbstractSimilarityMeasure):
     # which splits it up into multiple queries.
     def get_sims(self, example):
 
-        batch_size = len(self.dataset.x_train)
+        batch_size = 1
         input_pairs = self.create_batch_for_example(example)
         input_pairs = self.reshape_and_add_aux_input(input_pairs, batch_size)
 
@@ -130,6 +130,7 @@ class SimpleSNN(AbstractSimilarityMeasure):
             sims = self.get_sims_for_batch(input_pairs)
             # get_sims_for_batch returns a tensor, .numpy can't be called in there because of tf.function annotation
             sims = sims.numpy()
+            #sims = sims.numpy().astype(np.float64)
 
         return sims, self.dataset.y_train_strings
 

@@ -26,17 +26,15 @@ class Inference:
     def infer_test_dataset(self) -> Dict[int, List[Tuple[int, float]]]:
         #start_time = time.perf_counter()
         #count = 0
-        for idx_test in self.idx_test_examples_query_pool:
-            # measure the similarity between the test series and the training batch series
 
-            sims, labels = self.architecture.get_sims(self.dataset.x_test[idx_test])
-            # print("sims shape: ", sims.shape, " label shape: ", labels.shape)
-            # check similarities of all pairs and record the index of the closest training series
+        sims, labels = self.architecture.get_sims(self.dataset.x_test)
+        # print("sims shape: ", sims.shape, " label shape: ", labels.shape)
+        # check similarities of all pairs and record the index of the closest training series
 
-            self.evaluator.add_single_example_results(sims, idx_test)
-            #if count == 10:
-            #    break
-            #count += 1
+        self.evaluator.add_single_example_results(sims)
+        #if count == 10:
+        #    break
+        #count += 1
         return self.evaluator.retrieval_results
         # inference finished
         # elapsed_time = time.perf_counter() - start_time
