@@ -131,7 +131,7 @@ class InferenceConfiguration:
 
         # If enabled the similarity assessment of the test dataset to the training datset will be split into chunks
         # Possibly necessary due to VRam limitation
-        self.split_sim_calculation = False  # default False
+        self.split_sim_calculation = True  # default False
         self.sim_calculation_batch_size = 128
 
         # If enabled the model is printed as model.png

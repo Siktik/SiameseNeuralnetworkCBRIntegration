@@ -213,31 +213,77 @@ def get_similarity(config: Configuration):
     context = zmq.Context()
     socket = context.socket(zmq.REP)  # REP = reply (server)
     socket.bind("tcp://*:5555")
-    feature_names= []
+    failure_names= []
     received_init = False
+    received_casebase= False#
+
+    case_base = {
+        'timeseries_array': [],
+        'window_times': [],
+        'recording_sequences': [],
+        'labels': [],
+        'ids': []
+    }
+    query = dict()
     while True:
         message = socket.recv()
         json_message = json.loads(message.decode('utf-8'))
         if not received_init:  # handshake and init information
             received_init = True
             print("init message received")
-            feature_names= np.array(json_message["featureNames"])
+            failure_names = np.array(json_message["failureNames"])
             socket.send_string("Received comm init, waiting for input")  # send a reply back
             continue
         elif json_message == "TERMINATE":
             print("terminating on demand")
             break
+        elif json_message == "Finished_Sending_CaseBase":
+            print("finished sending case base")
+            received_casebase = True
+            socket.send_string("Received finished sending casebase")
+            continue
         else:
-            query = json_message["query"]
-            case = json_message["caseObject"]
-            dataset: FullDataset = FullDataset(config.case_base_folder, config, feature_names, training=False)
-            dataset.load(query, case)
-            snn = initialise_snn(config,dataset, False)
-            inference = Inference(config, snn, dataset)
-            inference.infer_test_dataset()
-            socket.send_string("Received and Processed")  # send a reply back
+            if not received_casebase:
+                for case in json_message:
+                    # 1. Timeseries: ensure shape is (1000, 61)
+                    ts = np.array(case["timeSeries"]).T
+                    case_base["timeseries_array"].append(ts)
 
-            break
+                    # 2. Window times
+                    case_base["window_times"].append([case["startDate"], "to", case["endDate"]])
+
+                    # 3. Recording sequence
+                    case_base["recording_sequences"].append(case["recordingSequence"])
+
+                    # 4. Label
+                    case_base["labels"].append(case["label"])
+
+                    # 5. ids
+                    case_base["ids"].append(case["case_ID"])
+                socket.send_string("Received and Processed")  # send a reply back
+                continue
+
+            else:
+                query["timeseries_array"] = np.array(json_message["timeSeries"]).T
+                # 2. Window times
+                query["window_time"] = ([json_message["startDate"], "to", json_message["endDate"]])
+
+                # 3. Recording sequence
+                query["recording_sequences"] = (json_message["recordingSequence"])
+
+                # 4. Label
+                query["label"] = (json_message["label"])
+
+                # 5. ids
+                query["id"] = (json_message["case_ID"])
+                dataset: FullDataset = FullDataset(config.case_base_folder, config, failure_names, training=False)
+                dataset.load(query, case_base)
+                snn = initialise_snn(config, dataset, False)
+                inference = Inference(config, snn, dataset)
+                inference.infer_test_dataset()
+                socket.send_string("Received and Processed")  # send a reply back
+                continue
+
 
 
 def inferNPY(config: Configuration, fullDataSet: bool):

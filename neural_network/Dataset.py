@@ -41,6 +41,8 @@ class FullDataset(Dataset):
         self.num_test_instances = None
         self.training = training
 
+        # total number of classes
+        self.num_classes = None
 
         # dictionary with key: class as integer and value: array with index positions
         self.class_idx_to_ex_idxs_train = {}
@@ -62,6 +64,13 @@ class FullDataset(Dataset):
         # at this index is relevant for the class described with the label key
         self.class_label_to_masking_vector = {}
 
+        self.group_id_to_masking_vector = {}
+
+        #
+        # new
+        #
+
+        self.y_train_strings_unique = None
         self.y_test_strings_unique = None
 
         # additional information for each example about their window time frame and failure occurrence time
@@ -83,22 +92,18 @@ class FullDataset(Dataset):
     def load_files(self, queries, caseBase):
 
 
-        self.x_train = np.array(caseBase['timeSeries']).T
-        self.y_train_strings = np.array([caseBase['label']]).reshape(-1, 1)
-        self.window_times_train = np.expand_dims(np.array([caseBase['startDate'], 'to', caseBase['endDate']]), axis=-1)
-        self.failure_times_train = np.array([caseBase['recordingSequence']])
 
-        '''if useNPYQueries:
-            self.x_test = np.load(self.dataset_folder + 'test_features.npy')  # data testing
-            self.y_test_strings = np.expand_dims(np.load(self.dataset_folder + 'test_labels.npy'), axis=-1)
-            self.window_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_window_times.npy'), axis=-1)
-            self.failure_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_failure_times.npy'), axis=-1)
-        else:
-        '''
-        self.x_test = np.array(queries['timeSeries']).T
+        self.x_train = np.array(caseBase['timeseries_array'])
+        self.y_train_strings = np.array(caseBase['labels']).reshape(-1, 1)
+        self.window_times_train = np.expand_dims(np.array(caseBase['window_times']), axis=-1)
+        self.failure_times_train = np.array(caseBase['recording_sequences']).reshape(-1, 1)
+
+
+        self.x_test = np.expand_dims(np.array(queries['timeseries_array']), axis=0)
         self.y_test_strings = np.array([queries['label']]).reshape(-1, 1)
-        self.window_times_test = np.expand_dims(np.array([queries['startDate'], 'to', queries['endDate']]),axis=-1)
-        self.failure_times_test = np.array([queries['recordingSequence']])
+        self.window_times_test = np.expand_dims(np.array(queries['window_time']).reshape(-1, 1), axis=0)
+        self.failure_times_test = np.array([queries['recording_sequences']]).reshape(-1, 1)
+
 
         print(self.y_test_strings.shape)
         print(self.window_times_test.shape)
@@ -122,7 +127,7 @@ class FullDataset(Dataset):
         self.y_test = one_hot_encoder.transform(self.y_test_strings)
 
         # reduce to 1d array
-        self.y_train_strings = np.squeeze(self.y_train_strings, axis=1)
+        self.y_train_strings = np.squeeze(self.y_train_strings)
         self.y_test_strings = np.squeeze(self.y_test_strings, axis=1)
 
         ##
@@ -130,24 +135,24 @@ class FullDataset(Dataset):
         ##
 
         # length of the first array dimension is the number of examples
-        self.num_train_instances = 1
-        self.num_test_instances = 1
+        self.num_train_instances = self.x_train.shape[0]
+        self.num_test_instances = self.x_test.shape[0]
 
         # the total sum of examples
         self.num_instances = self.num_train_instances + self.num_test_instances
 
         # length of the second array dimension is the length of the time series
-        self.time_series_length = self.x_train.shape[0]
+        self.time_series_length = self.x_train.shape[1]
 
         # length of the third array dimension is the number of channels = (independent) readings at this point of time
-        self.time_series_depth = self.x_train.shape[1]
+        self.time_series_depth = self.x_train.shape[2]
 
         self.y_test_strings_unique, counts = np.unique(self.y_test_strings, return_counts=True)
         self.num_instances_by_class_test = np.asarray((self.y_test_strings_unique, counts)).T
 
         # required for inference metric calculation
         # get all failures and labels as unique entry
-        failure_times_label = np.stack((self.y_test_strings, self.failure_times_test)).T
+        failure_times_label = np.stack((self.y_test_strings, np.squeeze(self.failure_times_test, axis=1))).T
         # extract unique permutations between failure occurrence time and labeled entry
         unique_failure_times_label, failure_times_count = np.unique(failure_times_label, axis=0, return_counts=True)
         # remove noFailure entries

@@ -101,42 +101,9 @@ class Evaluator:
         # Increase the value of this "label pair"
         self.multi_class_results.loc[max_sim_class, true_class] += 1
 
-        self.quality_all_condition_quality += self.dataset.get_sim_label_pair_for_notion(true_class, max_sim_class,
-                                                                                         "condition")
-        self.quality_all_failure_mode_diagnosis += self.dataset.get_sim_label_pair_for_notion(true_class, max_sim_class,
-                                                                                              "failuremode")
-        self.quality_all_failure_localization += self.dataset.get_sim_label_pair_for_notion(true_class, max_sim_class,
-                                                                                            "localization")
 
-        # Increase the number of examples of true_class that have been tested and the total number of tested examples
-        self.results.loc[true_class, '#Examples'] += 1
 
-        # Store the prediction result in respect to a failure occurrence
-        if not true_class == 'no_failure':
-            self.example_counter_fails += 1
 
-            if true_class == max_sim_class:
-                self.failure_results.loc[(self.failure_results['Label'].isin([true_class])) & (
-                    self.failure_results['FailureTime'].isin(
-                        self.dataset.failure_times_test[test_example_index])), 'Correct'] += 1
-
-            elif max_sim_class == 'no_failure':
-                self.failure_results.loc[(self.failure_results['Label'].isin([true_class])) & (
-                    self.failure_results['FailureTime'].isin(
-                        self.dataset.failure_times_test[test_example_index])), 'AsHealth'] += 1
-
-            else:
-                self.failure_results.loc[(self.failure_results['Label'].isin([true_class])) & (
-                    self.failure_results['FailureTime'].isin(
-                        self.dataset.failure_times_test[test_example_index])), 'AsOtherFailure'] += 1
-
-            self.quality_fails_condition_quality += self.dataset.get_sim_label_pair_for_notion(true_class,
-                                                                                               max_sim_class,
-                                                                                               "condition")
-            self.quality_fails_mode_diagnosis += self.dataset.get_sim_label_pair_for_notion(true_class, max_sim_class,
-                                                                                            "failuremode")
-            self.quality_fails_localization += self.dataset.get_sim_label_pair_for_notion(true_class, max_sim_class,
-                                                                                          "localization")
 
         ###
         # Output the results of this example
