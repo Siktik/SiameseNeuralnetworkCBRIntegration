@@ -36,6 +36,8 @@ class Dataset:
         self.update_query(queries)
         current_dir = os.path.dirname(os.path.abspath(__file__))
         feature_names_path = os.path.join(current_dir, '..', 'configuration', 'feature_names.npy')
+        self.feature_names_all = np.load(feature_names_path)  # names of the features (3. dim)
+
 
         # reduce to 1d array
         self.y_train_strings = np.squeeze(self.y_train_strings)
