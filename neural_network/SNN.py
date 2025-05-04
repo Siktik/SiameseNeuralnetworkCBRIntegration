@@ -286,7 +286,4 @@ class SimpleSNN(AbstractSimilarityMeasure):
         if cont or (not self.training and not for_cbs):
             self.encoder.load_model_weights(model_folder)
 
-    def print_detailed_model_info(self):
-        print('')
-        self.encoder.print_model_info()
-        print('')
+

@@ -37,7 +37,7 @@ class FullDataset(Dataset):
 
         self.x_test = None
         self.y_test = None
-        self.y_test_strings = None
+        self.y_train_strings = None
         self.training = training
 
         # all failure names
@@ -47,40 +47,16 @@ class FullDataset(Dataset):
         # at this index is relevant for the class described with the label key
         self.class_label_to_masking_vector = {}
 
-        # additional information for each example about their window time frame and failure occurrence time
-        self.window_times_train = None
-        self.window_times_test = None
-        self.failure_times_train = None
-        self.failure_times_test = None
-
     def update_query(self, queries):
 
         # only query is updated
         self.x_test = np.expand_dims(np.array(queries['timeseries_array']), axis=0)
-        self.y_test_strings = np.array([queries['label']]).reshape(-1, 1)
-        self.window_times_test = np.expand_dims(np.array(queries['window_time']).reshape(-1, 1), axis=0)
-        self.failure_times_test = np.array([queries['recording_sequences']]).reshape(-1, 1)
 
     def load_files(self, queries, caseBase):
 
-        if queries is None and caseBase is None:
-            self.x_train = np.load(self.dataset_folder + 'train_features.npy')  # data training
-            self.y_train_strings = np.expand_dims(np.load(self.dataset_folder + 'train_labels.npy'), axis=-1)
-            self.window_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_window_times.npy'), axis=-1)
-            self.failure_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_failure_times.npy'), axis=-1)
-
-            self.x_test = np.load(self.dataset_folder + 'test_features.npy')  # data testing
-            self.y_test_strings = np.expand_dims(np.load(self.dataset_folder + 'test_labels.npy'), axis=-1)
-            self.window_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_window_times.npy'), axis=-1)
-            self.failure_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_failure_times.npy'), axis=-1)
-        else:
-            self.x_train = np.array(caseBase['timeseries_array'])
-            self.y_train_strings = np.array(caseBase['labels']).reshape(-1, 1)
-            self.window_times_train = np.expand_dims(np.array(caseBase['window_times']), axis=-1)
-            self.failure_times_train = np.array(caseBase['recording_sequences']).reshape(-1, 1)
-
-            self.update_query(queries)
-
+        self.x_train = np.array(caseBase['timeseries_array'])
+        self.y_train_strings = np.array(caseBase['labels']).reshape(-1, 1)
+        self.update_query(queries)
         self.feature_names_all = np.load(self.dataset_folder + 'feature_names.npy')  # names of the features (3. dim)
 
     def load(self, queries, caseBase, print_info=True):
@@ -88,7 +64,6 @@ class FullDataset(Dataset):
 
         # reduce to 1d array
         self.y_train_strings = np.squeeze(self.y_train_strings)
-        self.y_test_strings = np.squeeze(self.y_test_strings, axis=1)
 
         # length of the second array dimension is the length of the time series
         self.time_series_length = self.x_train.shape[1]
@@ -98,20 +73,6 @@ class FullDataset(Dataset):
 
         self.calculate_maskings()
 
-        # data
-        # 1. dimension: example
-        # 2. dimension: time index
-        # 3. dimension: array of all channels
-
-        if print_info:
-            print()
-            print('Dataset loaded:')
-            print('Shape of training set (example, time, channels):', self.x_train.shape)
-            print('Shape of test set (example, time, channels):', self.x_test.shape)
-            # print('Classes used in training: ', len(self.y_train_strings_unique)," :",self.y_train_strings_unique)
-            # print('Classes used in test: ', len(self.y_test_strings_unique)," :", self.y_test_strings_unique)
-            # print('Classes in total: ', self.classes_total)
-            print()
 
     def calculate_maskings(self):
         for case in self.classes_total:
@@ -138,21 +99,5 @@ class FullDataset(Dataset):
     def get_masking_float(self, class_label):
         return self.get_masking(class_label).astype(float)
 
-    def get_time_window_str(self, index, dataset_type):
-        if dataset_type == 'test':
-            dataset = self.window_times_test
-        elif dataset_type == 'train':
-            dataset = self.window_times_train
-        else:
-            raise ValueError('Unknown dataset type')
-
-        rep = lambda x: str(x).replace("['YYYYMMDD HH:mm:ss (", "").replace(")']", "")
-
-        t1 = rep(dataset[index][0])
-        t2 = rep(dataset[index][2])
-        return " - ".join([t1, t2])
-
-    def get_indices_failures_only_test(self):
-        return np.where(self.y_test_strings != 'no_failure')[0]
 
 

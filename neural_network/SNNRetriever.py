@@ -1,16 +1,11 @@
 import json
-from typing import Dict, List, Tuple
 
 import numpy as np
 import zmq
 
 from configuration.Configuration import Configuration
 from neural_network.Dataset import FullDataset
-from neural_network.Inference import Inference
 from neural_network.SNN import initialise_snn
-
-import time
-
 
 
 def get_similarity(config: Configuration):
@@ -52,37 +47,18 @@ def get_similarity(config: Configuration):
         else:
             if not received_casebase:
                 for case in json_message:
-                    # 1. Timeseries: ensure shape is (1000, 61)
+
                     ts = np.array(case["timeSeries"]).T
                     case_base["timeseries_array"].append(ts)
-
-                    # 2. Window times
-                    case_base["window_times"].append([case["startDate"], "to", case["endDate"]])
-
-                    # 3. Recording sequence
-                    case_base["recording_sequences"].append(case["recordingSequence"])
-
-                    # 4. Label
                     case_base["labels"].append(case["label"])
 
-                    # 5. ids
-                    case_base["ids"].append(case["case_ID"])
                 socket.send_string("Received and Processed")  # send a reply back
                 continue
 
             else:
+
                 query["timeseries_array"] = np.array(json_message["timeSeries"]).T
-                # 2. Window times
-                query["window_time"] = ([json_message["startDate"], "to", json_message["endDate"]])
-
-                # 3. Recording sequence
-                query["recording_sequences"] = (json_message["recordingSequence"])
-
-                # 4. Label
-                query["label"] = (json_message["label"])
-
-                # 5. ids
-                query["id"] = (json_message["case_ID"])
+                query["id"] = json_message["case_ID"]
                 if dataset is None:
                     dataset: FullDataset = FullDataset(config.case_base_folder, config, failure_names, training=False)
                     dataset.load(query, case_base)
@@ -90,13 +66,12 @@ def get_similarity(config: Configuration):
                     dataset.update_query(query)
                 if snn is None:
                     snn = initialise_snn(config, dataset, False)
-                inference = Inference(config, snn, dataset)
-                sims, knn_results = inference.infer_test_dataset(query["id"])
+
+                print("current query ", query["id"])
+                sims, labels = snn.get_sims(dataset.x_test)
 
                 json_ready = {
-                    #"rounded": [str(round(val, 6)) for val in sims],
-                    "rounded": [str(val) for val in sims],
-                    "knn_results": knn_results,
+                    "similarities": [str(val) for val in sims],
                 }
                 socket.send_string(json.dumps(json_ready))  # send a reply back
 

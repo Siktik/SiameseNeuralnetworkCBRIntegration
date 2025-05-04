@@ -19,19 +19,7 @@ class NN:
     def print_model_info(self):
         self.model.summary()
 
-    def get_parameter_count(self):
-        total_parameters = 0
 
-        for variable in self.model.trainable_variables:
-            shape = variable.get_shape()
-            variable_parameters = 1
-
-            for dim in shape:
-                variable_parameters *= dim
-
-            total_parameters += variable_parameters
-
-        return total_parameters
 
     def load_model_weights(self, model_folder):
         if self.model is None:
@@ -55,8 +43,7 @@ class NN:
         else:
             print('Model has been loaded successfully')
 
-    def get_output_shape(self):
-        return self.model.output_shape
+
 
 
 
@@ -217,8 +204,4 @@ class CNN2dWithAddInput(NN):
                                                       outputs=self.model.get_layer("reshape").output)
         '''
 
-    def get_output_shape(self):
-        # output shape onyl from first output x
-        return self.model.output_shape[0]
-        # raise NotImplementedError('Must be added in order for ffnn version to work with this encoder')
 
