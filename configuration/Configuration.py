@@ -1,5 +1,5 @@
 import json
-
+import os
 
 ####
 # Note: Division into different classes only serves to improve clarity.
@@ -23,11 +23,12 @@ class GeneralConfiguration:
         self.max_parallel_cores = 60
 
         # Folder where the trained models are saved to during learning process
-        self.models_folder = '../configuration/trained_models/'
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        self.models_folder = os.path.join(current_dir, 'trained_models')
 
         # Path and file name to the specific model that should be used for testing and live classification
         self.filename_model_to_use = 'temp_snn_model_04-09_22-31-47_epoch-1748'
-        self.directory_model_to_use = self.models_folder + self.filename_model_to_use + '/'
+        self.directory_model_to_use = self.models_folder +"\\"+ self.filename_model_to_use + '\\'
 
 
 class ModelConfiguration:
@@ -73,7 +74,9 @@ class ModelConfiguration:
         ###
 
         # Main directory where the hyperparameter config files are stored
-        self.hyper_file_folder = '../configuration/hyperparameter_combinations/'
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(current_dir, 'hyperparameter_combinations')
+        self.hyper_file_folder = path+"\\"
         self.use_hyper_file = True
 
         # holding the hyperparameters for the cnn2d_withAddInput encoder variant
@@ -156,7 +159,8 @@ class StaticConfiguration:
         self.zeroOne, self.intNumbers, self.realValues, self.categoricalValues = None, None, None, None
 
         # noinspection PyUnresolvedReferences
-        self.load_config_json('../configuration/config.json')
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        self.load_config_json(os.path.join(current_dir, 'config.json'))
 
 
 class Configuration(

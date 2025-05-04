@@ -19,6 +19,7 @@ def communicating_with_proCAKE(config: Configuration):
     context = zmq.Context()
     socket = context.socket(zmq.REP)  # REP = reply (server)
     socket.bind("tcp://*:5555")
+    print("Bind on socket successful")
     failure_names = []
     received_init = False
     received_casebase = False
@@ -85,6 +86,7 @@ def communicating_with_proCAKE(config: Configuration):
                 continue
 
 def main():
+    print("SNNRetriever.py main is started")
     config = Configuration()
     communicating_with_proCAKE(config)
 

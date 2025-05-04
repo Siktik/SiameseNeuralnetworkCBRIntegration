@@ -1,5 +1,5 @@
 import numpy as np
-
+import os
 from configuration.Configuration import Configuration
 
 
@@ -34,7 +34,8 @@ class Dataset:
         self.x_train = np.array(case_base['timeseries_array'])
         self.y_train_strings = np.array(case_base['labels']).reshape(-1, 1)
         self.update_query(queries)
-        self.feature_names_all = np.load('../configuration/feature_names.npy')  # names of the features (3. dim)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        feature_names_path = os.path.join(current_dir, '..', 'configuration', 'feature_names.npy')
 
         # reduce to 1d array
         self.y_train_strings = np.squeeze(self.y_train_strings)
