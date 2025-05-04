@@ -23,13 +23,11 @@ class GeneralConfiguration:
         self.max_parallel_cores = 60
 
         # Folder where the trained models are saved to during learning process
-        self.models_folder = '../data/trained_models/'
+        self.models_folder = '../configuration/trained_models/'
 
         # Path and file name to the specific model that should be used for testing and live classification
-        self.filename_model_to_use = 'temp_snn_model_04-09_22-31-47_epoch-1748/'
+        self.filename_model_to_use = 'temp_snn_model_04-09_22-31-47_epoch-1748'
         self.directory_model_to_use = self.models_folder + self.filename_model_to_use + '/'
-
-        self.number_of_subsequent_retrievals = 1
 
 
 class ModelConfiguration:
@@ -125,15 +123,10 @@ class InferenceConfiguration:
         #   - Folder of used model is specified in GeneralConfiguration
         #   - Does not include settings for BaselineTester
 
-
-
         # If enabled the similarity assessment of the test dataset to the training datset will be split into chunks
         # Possibly necessary due to VRam limitation
         self.split_sim_calculation = True  # default False
         self.sim_calculation_batch_size = 128
-
-        # If enabled the model is printed as model.png
-        self.print_model = True
 
         # the k of the knn classifier used for live classification
         self.k_of_knn = 10
@@ -164,20 +157,6 @@ class StaticConfiguration:
 
         # noinspection PyUnresolvedReferences
         self.load_config_json('../configuration/config.json')
-
-        ##
-        # Folders and file names
-        ##
-        # Note: Folder of used model specified in GeneralConfiguration
-
-        # Folder where the preprocessed training and test data for the neural network should be stored
-        self.training_data_folder = '../training_data/'
-
-        # Folder where the reduced training data set aka. case base is saved to
-        self.case_base_folder = '../data/case_base/'
-
-        # the first 200 cases from the FullDataSet, only for simple functionality test
-        self.limited_training_data_folder = '../data/limited_dataSet/'
 
 
 class Configuration(
@@ -210,25 +189,3 @@ class Configuration(
     # returns individual defined features (instead of group features)
     def get_relevant_features_case(self, case):
         return [self.case_to_individual_features.get(case), self.case_to_individual_features_strict.get(case)]
-
-    def print_detailed_config_used_for_training(self):
-        print("--- Current Configuration ---")
-        print("General related:")
-        print("- simple_measure: ", self.simple_measure)
-        print("- hyper_file: ", self.hyper_file)
-        print("")
-        print("Masking related:")
-        print("- individual_relevant_feature_selection: ", self.individual_relevant_feature_selection)
-        print("- use_additional_strict_masking_for_attribute_sim: ",
-              self.use_additional_strict_masking_for_attribute_sim)
-        print("- use_same_feature_weights_for_unsimilar_pairs: ", self.use_same_feature_weights_for_unsimilar_pairs)
-        print("")
-        print("Similarity Measure related:")
-        print("- useFeatureWeightedSimilarity: ", self.useFeatureWeightedSimilarity)
-        print("- use_time_step_wise_simple_similarity: ", self.use_time_step_wise_simple_similarity)
-        print("")
-        print("Inference related:")
-        print("- case_base_for_inference: ", self.case_base_for_inference)
-        print("- split_sim_calculation: ", self.split_sim_calculation)
-        print("- sim_calculation_batch_size: ", self.sim_calculation_batch_size)
-        print("--- ---")

@@ -4,8 +4,12 @@ import tensorflow as tf
 from configuration.Configuration import Configuration
 from configuration.Hyperparameter import Hyperparameters
 from neural_network.BasicNeuralNetworks import CNN2dWithAddInput
-from neural_network.Dataset import FullDataset
+from neural_network.Dataset import Dataset
 from neural_network.SimpleSimilarityMeasure import SimpleSimilarityMeasure
+
+'''
+code is untouched except by deleting functions that weren't used anymore
+'''
 
 
 def initialise_snn(config: Configuration, dataset, training, for_cbs=False, group_id=''):
@@ -13,42 +17,22 @@ def initialise_snn(config: Configuration, dataset, training, for_cbs=False, grou
     return SimpleSNN(config, dataset, training, for_cbs, group_id)
 
 
-class AbstractSimilarityMeasure:
+class SimpleSNN:
 
-    def __init__(self, training):
+    def __init__(self, config, dataset, training):
         self.training = training
-
-    def load_model(self, model_folder=None, training=None):
-        raise NotImplementedError()
-
-    def get_sims(self, example):
-        raise NotImplementedError()
-
-    def get_sims_for_batch(self, batch):
-        raise NotImplementedError()
-
-
-class SimpleSNN(AbstractSimilarityMeasure):
-
-    def __init__(self, config, dataset, training, for_group_handler=False, group_id=''):
-        super().__init__(training)
-
-        self.dataset: FullDataset = dataset
+        self.dataset: Dataset = dataset
         self.config: Configuration = config
         self.hyper = None
         self.encoder = None
 
-        if 'simple' in self.config.architecture_variant:
-            self.simple_sim = SimpleSimilarityMeasure(self.config.simple_measure)
+        self.simple_sim = SimpleSimilarityMeasure(self.config.simple_measure)
 
-        # Load model only if init was not called by subclass, would otherwise be executed multiple times
-        if type(self) is SimpleSNN:
-            self.load_model(for_cbs=for_group_handler, group_id=group_id)
+        self.load_model()
 
     # Reshapes the standard import shape (examples x ts_length x ts_depth) if needed for the used encoder variant
     def reshape(self, input_pairs):
-        if self.hyper.encoder_variant in ['cnn2dwithaddinput', 'cnn2d']:
-            input_pairs = np.reshape(input_pairs, (input_pairs.shape[0], input_pairs.shape[1], input_pairs.shape[2], 1))
+        input_pairs = np.reshape(input_pairs, (input_pairs.shape[0], input_pairs.shape[1], input_pairs.shape[2], 1))
         return input_pairs
 
     # Reshapes and adds auxiliary input for special encoder variants
@@ -56,36 +40,34 @@ class SimpleSNN(AbstractSimilarityMeasure):
 
         input_pairs = self.reshape(input_pairs)
 
-        if self.hyper.encoder_variant == 'cnn2dwithaddinput':
-
-            # aux_input will always be none except when called by the optimizer (during training)
-            # print("aux_input: ", aux_input)
-            if aux_input is None:
-                if self.config.use_additional_strict_masking_for_attribute_sim:
-                    aux_input = np.zeros((2 * batch_size, self.hyper.time_series_depth * 2), dtype='float32')
-                else:
-                    aux_input = np.zeros((2 * batch_size, self.hyper.time_series_depth), dtype='float32')
-
-                for index in range(batch_size):
-                    # noinspection PyUnresolvedReferences
-                    aux_input[2 * index] = self.dataset.get_masking_float(
-                        self.dataset.y_train_strings[index])
-                    # noinspection PyUnresolvedReferences
-                    aux_input[2 * index + 1] = self.dataset.get_masking_float(
-                        self.dataset.y_train_strings[index])
-                    # print("self.dataset.y_train_strings")
-                    # print("index: ", index, )
-                # print("aux_input: ", aux_input.shape)
+        # aux_input will always be none except when called by the optimizer (during training)
+        # print("aux_input: ", aux_input)
+        if aux_input is None:
+            if self.config.use_additional_strict_masking_for_attribute_sim:
+                aux_input = np.zeros((2 * batch_size, self.hyper.time_series_depth * 2), dtype='float32')
             else:
-                # Option to simulate a retrieval situation (during training) where only the weights of the
-                # example from the case base/training data set are known
-                if self.config.use_same_feature_weights_for_unsimilar_pairs:
-                    for index in range(aux_input.shape[0] // 2):
-                        # noinspection PyUnboundLocalVariable, PyUnresolvedReferences
-                        aux_input[2 * index] = aux_input[2 * index]
-                        aux_input[2 * index + 1] = aux_input[2 * index]
-                        # print("index: ", index, )
-            input_pairs = [input_pairs, aux_input]
+                aux_input = np.zeros((2 * batch_size, self.hyper.time_series_depth), dtype='float32')
+
+            for index in range(batch_size):
+                # noinspection PyUnresolvedReferences
+                aux_input[2 * index] = self.dataset.get_masking_float(
+                    self.dataset.y_train_strings[index])
+                # noinspection PyUnresolvedReferences
+                aux_input[2 * index + 1] = self.dataset.get_masking_float(
+                    self.dataset.y_train_strings[index])
+                # print("self.dataset.y_train_strings")
+                # print("index: ", index, )
+            # print("aux_input: ", aux_input.shape)
+        else:
+            # Option to simulate a retrieval situation (during training) where only the weights of the
+            # example from the case base/training data set are known
+            if self.config.use_same_feature_weights_for_unsimilar_pairs:
+                for index in range(aux_input.shape[0] // 2):
+                    # noinspection PyUnboundLocalVariable, PyUnresolvedReferences
+                    aux_input[2 * index] = aux_input[2 * index]
+                    aux_input[2 * index + 1] = aux_input[2 * index]
+                    # print("index: ", index, )
+        input_pairs = [input_pairs, aux_input]
 
         return input_pairs
 
@@ -141,12 +123,9 @@ class SimpleSNN(AbstractSimilarityMeasure):
         # assert batch.shape[0] % 2 == 0, 'Input batch of uneven length not possible'
 
         # pair: index+0: test, index+1: train --> only half as many results
-        if self.hyper.encoder_variant == 'cnn2dwithaddinput':
-            num_examples = batch[0].shape[0]
-            num_pairs = batch[0].shape[0] // 2
-        else:
-            num_examples = batch.shape[0]
-            num_pairs = batch.shape[0] // 2
+
+        num_examples = batch[0].shape[0]
+        num_pairs = batch[0].shape[0] // 2
 
         sims_all_examples = np.zeros(num_pairs)
         batch_size = self.config.sim_calculation_batch_size
@@ -165,12 +144,9 @@ class SimpleSNN(AbstractSimilarityMeasure):
             sim_start = index // 2
             sim_end = (index + batch_size) // 2
 
-            if self.hyper.encoder_variant == 'cnn2dwithaddinput':
-                subsection_examples = batch[0][index:index + batch_size]
-                subsection_aux_input = batch[1][index:index + batch_size]
-                subsection_batch = [subsection_examples, subsection_aux_input]
-            else:
-                subsection_batch = batch[index:index + batch_size]
+            subsection_examples = batch[0][index:index + batch_size]
+            subsection_aux_input = batch[1][index:index + batch_size]
+            subsection_batch = [subsection_examples, subsection_aux_input]
 
             sims_subsection = self.get_sims_for_batch(subsection_batch)
 
@@ -184,10 +160,7 @@ class SimpleSNN(AbstractSimilarityMeasure):
         # calculate the output of the encoder for the examples in the batch
         context_vectors = self.encoder.model(batch, training=self.training)
 
-        if self.hyper.encoder_variant == 'cnn2dwithaddinput':
-            input_size = batch[0].shape[0] // 2
-        else:
-            input_size = batch.shape[0] // 2
+        input_size = batch[0].shape[0] // 2
 
         sims_batch = tf.map_fn(lambda pair_index: self.get_sim_pair(context_vectors, pair_index),
                                tf.range(input_size, dtype=tf.int32), back_prop=True, dtype=tf.float32)
@@ -206,25 +179,20 @@ class SimpleSNN(AbstractSimilarityMeasure):
         w = None
 
         # Parsing the input (e.g., two 1d or 2d vectors depending on which encoder is used) to calculate distance / sim
-        if self.encoder.hyper.encoder_variant == 'cnn2dwithaddinput':
-            # Output of encoder are encoded time series and additional things e.g., weights vectors
-            a = context_vectors[0][2 * pair_index, :, :]
-            b = context_vectors[0][2 * pair_index + 1, :, :]
+        # Output of encoder are encoded time series and additional things e.g., weights vectors
+        a = context_vectors[0][2 * pair_index, :, :]
+        b = context_vectors[0][2 * pair_index + 1, :, :]
 
-            if self.config.useFeatureWeightedSimilarity:
-                a_weights = context_vectors[1][2 * pair_index, :]
-                b_weights = context_vectors[1][2 * pair_index + 1, :]
-            if self.encoder.hyper.useAddContextForSim == 'True':
-                a_context = context_vectors[2][2 * pair_index, :]
-                b_context = context_vectors[2][2 * pair_index + 1, :]
-            if self.encoder.hyper.useAddContextForSim_LearnOrFixWeightVale == 'True':
-                w = context_vectors[3][2 * pair_index, :]
-                # debug output:
-                # tf.print("context_vectors[3][2 * pair_index, :]", context_vectors[4][2 * pair_index, :])
-
-        else:
-            a = context_vectors[2 * pair_index, :, :]
-            b = context_vectors[2 * pair_index + 1, :, :]
+        if self.config.useFeatureWeightedSimilarity:
+            a_weights = context_vectors[1][2 * pair_index, :]
+            b_weights = context_vectors[1][2 * pair_index + 1, :]
+        if self.encoder.hyper.useAddContextForSim == 'True':
+            a_context = context_vectors[2][2 * pair_index, :]
+            b_context = context_vectors[2][2 * pair_index + 1, :]
+        if self.encoder.hyper.useAddContextForSim_LearnOrFixWeightVale == 'True':
+            w = context_vectors[3][2 * pair_index, :]
+            # debug output:
+            # tf.print("context_vectors[3][2 * pair_index, :]", context_vectors[4][2 * pair_index, :])
 
         # Normalization
         if self.config.normalize_snn_encoder_output:
@@ -252,7 +220,7 @@ class SimpleSNN(AbstractSimilarityMeasure):
 
         return a, b
 
-    def load_model(self, for_cbs=False, group_id='', cont=False):
+    def load_model(self):
 
         self.hyper = Hyperparameters()
 
@@ -282,8 +250,4 @@ class SimpleSNN(AbstractSimilarityMeasure):
 
         self.encoder.create_model()
 
-        # load weights if snn that isn't training
-        if cont or (not self.training and not for_cbs):
-            self.encoder.load_model_weights(model_folder)
-
-
+        self.encoder.load_model_weights(model_folder)

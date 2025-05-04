@@ -139,7 +139,7 @@ data/case_base/*
 data/datasets/*
 !data/datasets/.gitkeep
 
-data/trained_models/temp_*
-!data/trained_models/.gitkeep
+configuration/trained_models/temp_*
+!configuration/trained_models/.gitkeep
 
 

@@ -1,44 +1,21 @@
 import numpy as np
-import pandas as pd
-from sklearn import preprocessing
 
 from configuration.Configuration import Configuration
 
 
 class Dataset:
 
-    def __init__(self, dataset_folder, config: Configuration):
-        self.dataset_folder = dataset_folder
+    def __init__(self, config: Configuration, failure_names, training):
+
+        self.x_train = None
         self.config: Configuration = config
-
-        self.x_train = None  # training data (examples,time,channels)
-        self.y_train = None  # One hot encoded class labels (numExamples,numClasses)
-        self.y_train_strings = None  # class labels as strings (numExamples,1)
-        self.num_train_instances = None
-        self.num_instances = None
-
-        # Class names as string
-        self.classes_total = None
-
-        self.time_series_length = None
-        self.time_series_depth = None
-
-        # the names of all features of the dataset loaded from files
         self.feature_names_all = None
-
-    def load(self, queries, casebase):
-        raise NotImplemented('Not implemented for abstract class')
-
-
-class FullDataset(Dataset):
-
-    def __init__(self, dataset_folder, config: Configuration, failure_names, training):
-        super().__init__(dataset_folder, config)
-
         self.x_test = None
         self.y_test = None
         self.y_train_strings = None
         self.training = training
+        self.time_series_length = None
+        self.time_series_depth = None
 
         # all failure names
         self.classes_total = failure_names
@@ -52,15 +29,12 @@ class FullDataset(Dataset):
         # only query is updated
         self.x_test = np.expand_dims(np.array(queries['timeseries_array']), axis=0)
 
-    def load_files(self, queries, caseBase):
+    def load(self, queries, case_base):
 
-        self.x_train = np.array(caseBase['timeseries_array'])
-        self.y_train_strings = np.array(caseBase['labels']).reshape(-1, 1)
+        self.x_train = np.array(case_base['timeseries_array'])
+        self.y_train_strings = np.array(case_base['labels']).reshape(-1, 1)
         self.update_query(queries)
-        self.feature_names_all = np.load(self.dataset_folder + 'feature_names.npy')  # names of the features (3. dim)
-
-    def load(self, queries, caseBase, print_info=True):
-        self.load_files(queries, caseBase)
+        self.feature_names_all = np.load('../configuration/feature_names.npy')  # names of the features (3. dim)
 
         # reduce to 1d array
         self.y_train_strings = np.squeeze(self.y_train_strings)
@@ -72,7 +46,6 @@ class FullDataset(Dataset):
         self.time_series_depth = self.x_train.shape[2]
 
         self.calculate_maskings()
-
 
     def calculate_maskings(self):
         for case in self.classes_total:

@@ -16,11 +16,6 @@ class NN:
     def create_model(self):
         raise AssertionError('No model creation for abstract NN class possible')
 
-    def print_model_info(self):
-        self.model.summary()
-
-
-
     def load_model_weights(self, model_folder):
         if self.model is None:
             raise AttributeError('Model not initialised. Can not load weights.')
@@ -42,9 +37,6 @@ class NN:
             raise FileNotFoundError('Model file for this type could not be found in ' + str(model_folder))
         else:
             print('Model has been loaded successfully')
-
-
-
 
 
 class CNN2dWithAddInput(NN):
@@ -203,5 +195,3 @@ class CNN2dWithAddInput(NN):
         self.intermediate_layer_model = tf.keras.Model(inputs=case_dependent_vector_input,
                                                       outputs=self.model.get_layer("reshape").output)
         '''
-
-
