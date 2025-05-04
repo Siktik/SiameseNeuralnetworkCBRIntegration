@@ -2,9 +2,10 @@ import os
 import sys
 from typing import Dict, List, Tuple
 
+import numpy as np
+
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
-from neural_network.Evaluator import Evaluator
 from configuration.Configuration import Configuration
 from neural_network.Dataset import FullDataset
 
@@ -18,27 +19,25 @@ class Inference:
         self.dataset: FullDataset = dataset
 
 
-        self.idx_test_examples_query_pool = range(self.dataset.num_test_instances)
-        #self.idx_test_examples_query_pool = range(123,135)
+    def knn_output(self, sims, ranking_nearest_neighbors_idx):
 
-        self.evaluator = Evaluator(dataset, len(self.idx_test_examples_query_pool), self.config.k_of_knn)
+        knn_results = []
+        for i in range(self.config.k_of_knn):
+            index = ranking_nearest_neighbors_idx[i]
+            #row = {"caseID": str(index), "sim": str(round(sims[index], 6))}
+            row = {"caseID": str(index), "sim": str(sims[index])}
 
-    def infer_test_dataset(self) -> Dict[int, List[Tuple[int, float]]]:
-        #start_time = time.perf_counter()
-        #count = 0
+            knn_results.append(row)
 
+        return knn_results
+
+    def infer_test_dataset(self, id):
+
+        print("current query ", id)
         sims, labels = self.architecture.get_sims(self.dataset.x_test)
-        # print("sims shape: ", sims.shape, " label shape: ", labels.shape)
-        # check similarities of all pairs and record the index of the closest training series
+        # Get the indices of the examples sorted by smallest distance
+        nearest_neighbors_ranked_indices = np.argsort(-sims)
+        most_similar_ranked = self.knn_output(sims, nearest_neighbors_ranked_indices)
+        return sims, most_similar_ranked
 
-        self.evaluator.add_single_example_results(sims)
-        #if count == 10:
-        #    break
-        #count += 1
-        return self.evaluator.retrieval_results
-        # inference finished
-        # elapsed_time = time.perf_counter() - start_time
-
-        # self.evaluator.calculate_results()
-        # self.evaluator.print_results(elapsed_time)
 

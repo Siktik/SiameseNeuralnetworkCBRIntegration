@@ -130,7 +130,6 @@ class SimpleSNN(AbstractSimilarityMeasure):
             sims = self.get_sims_for_batch(input_pairs)
             # get_sims_for_batch returns a tensor, .numpy can't be called in there because of tf.function annotation
             sims = sims.numpy()
-            #sims = sims.numpy().astype(np.float64)
 
         return sims, self.dataset.y_train_strings
 

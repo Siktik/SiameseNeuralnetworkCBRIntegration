@@ -126,8 +126,6 @@ class InferenceConfiguration:
         #   - Does not include settings for BaselineTester
 
 
-        # Parameter to control the size / number of the queries used for evaluation
-        self.inference_with_failures_only = False  # default: False
 
         # If enabled the similarity assessment of the test dataset to the training datset will be split into chunks
         # Possibly necessary due to VRam limitation

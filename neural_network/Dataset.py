@@ -32,46 +32,20 @@ class Dataset:
 
 class FullDataset(Dataset):
 
-    def __init__(self, dataset_folder, config: Configuration, feature_names, training):
+    def __init__(self, dataset_folder, config: Configuration, failure_names, training):
         super().__init__(dataset_folder, config)
 
         self.x_test = None
         self.y_test = None
         self.y_test_strings = None
-        self.num_test_instances = None
         self.training = training
 
-        # total number of classes
-        self.num_classes = None
-
-        # dictionary with key: class as integer and value: array with index positions
-        self.class_idx_to_ex_idxs_train = {}
-        self.class_idx_to_ex_idxs_test = {}
-
-        # np array that contains the number of instances for each classLabel in the training data
-        self.num_instances_by_class_train = None
-
-        # np array that contains the number of instances for each classLabel in the test data
-        self.num_instances_by_class_test = None
-
-        # np array that contains a list classes that occur in training OR test data set
-        self.classes_total = feature_names
-
-        # np array that contains a list classes that occur in training AND test data set
-        self.classes_in_both = None
+        # all failure names
+        self.classes_total = failure_names
 
         # dictionary, key: class label, value: np array which contains 0s or 1s depending on whether the attribute
         # at this index is relevant for the class described with the label key
         self.class_label_to_masking_vector = {}
-
-        self.group_id_to_masking_vector = {}
-
-        #
-        # new
-        #
-
-        self.y_train_strings_unique = None
-        self.y_test_strings_unique = None
 
         # additional information for each example about their window time frame and failure occurrence time
         self.window_times_train = None
@@ -79,86 +53,48 @@ class FullDataset(Dataset):
         self.failure_times_train = None
         self.failure_times_test = None
 
-        # numpy array (x,2) that contains each unique permutation between failure occurrence time and assigned label
-        self.unique_failure_times_label = None
-        self.failure_times_count = None
+    def update_query(self, queries):
 
-        # pandas df ( = matrix) with pair-wise similarities between labels in respect to a metric
-        self.df_label_sim_localization = None
-        self.df_label_sim_failuremode = None
-        self.df_label_sim_condition = None
-
-    #if useNPYCaseBase then casebase param is empty
-    def load_files(self, queries, caseBase):
-
-
-
-        self.x_train = np.array(caseBase['timeseries_array'])
-        self.y_train_strings = np.array(caseBase['labels']).reshape(-1, 1)
-        self.window_times_train = np.expand_dims(np.array(caseBase['window_times']), axis=-1)
-        self.failure_times_train = np.array(caseBase['recording_sequences']).reshape(-1, 1)
-
-
+        # only query is updated
         self.x_test = np.expand_dims(np.array(queries['timeseries_array']), axis=0)
         self.y_test_strings = np.array([queries['label']]).reshape(-1, 1)
         self.window_times_test = np.expand_dims(np.array(queries['window_time']).reshape(-1, 1), axis=0)
         self.failure_times_test = np.array([queries['recording_sequences']]).reshape(-1, 1)
 
+    def load_files(self, queries, caseBase):
 
-        print(self.y_test_strings.shape)
-        print(self.window_times_test.shape)
-        print(self.failure_times_test.shape)
+        if queries is None and caseBase is None:
+            self.x_train = np.load(self.dataset_folder + 'train_features.npy')  # data training
+            self.y_train_strings = np.expand_dims(np.load(self.dataset_folder + 'train_labels.npy'), axis=-1)
+            self.window_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_window_times.npy'), axis=-1)
+            self.failure_times_train = np.expand_dims(np.load(self.dataset_folder + 'train_failure_times.npy'), axis=-1)
+
+            self.x_test = np.load(self.dataset_folder + 'test_features.npy')  # data testing
+            self.y_test_strings = np.expand_dims(np.load(self.dataset_folder + 'test_labels.npy'), axis=-1)
+            self.window_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_window_times.npy'), axis=-1)
+            self.failure_times_test = np.expand_dims(np.load(self.dataset_folder + 'test_failure_times.npy'), axis=-1)
+        else:
+            self.x_train = np.array(caseBase['timeseries_array'])
+            self.y_train_strings = np.array(caseBase['labels']).reshape(-1, 1)
+            self.window_times_train = np.expand_dims(np.array(caseBase['window_times']), axis=-1)
+            self.failure_times_train = np.array(caseBase['recording_sequences']).reshape(-1, 1)
+
+            self.update_query(queries)
+
         self.feature_names_all = np.load(self.dataset_folder + 'feature_names.npy')  # names of the features (3. dim)
 
     def load(self, queries, caseBase, print_info=True):
         self.load_files(queries, caseBase)
 
-        # create a encoder, sparse output must be disabled to get the intended output format
-        # added categories='auto' to use future behavior
-        one_hot_encoder = preprocessing.OneHotEncoder(sparse=False, categories='auto')
-
-        # prepare the encoder with training and test labels to ensure all are present
-        # the fit-function 'learns' the encoding but does not jet transform the data
-        # the axis argument specifies on which the two arrays are joined
-        one_hot_encoder = one_hot_encoder.fit(np.concatenate((self.y_train_strings, self.y_test_strings), axis=0))
-
-        # transforms the vector of labels into a one hot matrix
-        self.y_train = one_hot_encoder.transform(self.y_train_strings)
-        self.y_test = one_hot_encoder.transform(self.y_test_strings)
-
         # reduce to 1d array
         self.y_train_strings = np.squeeze(self.y_train_strings)
         self.y_test_strings = np.squeeze(self.y_test_strings, axis=1)
-
-        ##
-        # safe information about the dataset
-        ##
-
-        # length of the first array dimension is the number of examples
-        self.num_train_instances = self.x_train.shape[0]
-        self.num_test_instances = self.x_test.shape[0]
-
-        # the total sum of examples
-        self.num_instances = self.num_train_instances + self.num_test_instances
 
         # length of the second array dimension is the length of the time series
         self.time_series_length = self.x_train.shape[1]
 
         # length of the third array dimension is the number of channels = (independent) readings at this point of time
         self.time_series_depth = self.x_train.shape[2]
-
-        self.y_test_strings_unique, counts = np.unique(self.y_test_strings, return_counts=True)
-        self.num_instances_by_class_test = np.asarray((self.y_test_strings_unique, counts)).T
-
-        # required for inference metric calculation
-        # get all failures and labels as unique entry
-        failure_times_label = np.stack((self.y_test_strings, np.squeeze(self.failure_times_test, axis=1))).T
-        # extract unique permutations between failure occurrence time and labeled entry
-        unique_failure_times_label, failure_times_count = np.unique(failure_times_label, axis=0, return_counts=True)
-        # remove noFailure entries
-        idx = np.where(np.char.find(unique_failure_times_label, 'noFailure') >= 0)
-        self.unique_failure_times_label = np.delete(unique_failure_times_label, idx, 0)
-        self.failure_times_count = np.delete(failure_times_count, idx, 0)
 
         self.calculate_maskings()
 
@@ -176,8 +112,6 @@ class FullDataset(Dataset):
             # print('Classes used in test: ', len(self.y_test_strings_unique)," :", self.y_test_strings_unique)
             # print('Classes in total: ', self.classes_total)
             print()
-
-
 
     def calculate_maskings(self):
         for case in self.classes_total:
@@ -221,17 +155,4 @@ class FullDataset(Dataset):
     def get_indices_failures_only_test(self):
         return np.where(self.y_test_strings != 'no_failure')[0]
 
-    def get_sim_label_pair_for_notion(self, label_1: str, label_2: str, notion_of_sim: str):
-        # Output similarity value under consideration of the metric
 
-        if notion_of_sim == 'failuremode':
-            pair_label_sim = self.df_label_sim_failuremode.loc[label_1, label_2]
-        elif notion_of_sim == 'localization':
-            pair_label_sim = self.df_label_sim_localization.loc[label_1, label_2]
-        elif notion_of_sim == 'condition':
-            pair_label_sim = self.df_label_sim_condition.loc[label_1, label_2]
-        else:
-            print("Similarity notion: ", notion_of_sim, " unknown! Results in sim 0")
-            pair_label_sim = 0
-
-        return float(pair_label_sim)
